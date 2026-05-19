@@ -13,3 +13,10 @@ export type BossInfo = {
   drops: { itemName: string; dropType: string }[];
   rewards: { itemName: string; rank: string; qty: string; rate: string }[];
 };
+
+export type BossData = {
+  bossId: string;
+  wikiId: string;
+  schedule: BossSchedule;
+  bossInfo: BossInfo | null;
+};
