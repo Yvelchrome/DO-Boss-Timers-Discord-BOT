@@ -7,7 +7,8 @@
     "dev": "bun --watch src/index.ts",
     "start": "bun src/index.ts",
     "clean": "bun src/clean.ts",
-    "register": "bun src/register.ts"
+    "register": "bun src/register.ts",
+    "deploy": "bun run clean && bun run register"
   },
   "dependencies": {
     "discord.js": "^14.16.3"
