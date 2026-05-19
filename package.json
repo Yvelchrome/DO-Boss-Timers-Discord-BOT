@@ -1,0 +1,15 @@
+{
+  "name": "do-boss-timers-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "clean": "bun src/clean.ts",
+    "register": "bun src/register.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.16.3"
+  }
+}
