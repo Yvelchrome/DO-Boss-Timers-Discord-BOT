@@ -7,7 +7,14 @@ import {
   fetchBossInfo,
   fetchBosses,
 } from "../bossTimers";
-import { GuildConfig, guildConfigs, hasRole } from "./config";
+import {
+  GuildConfig,
+  guildConfigs,
+  hasRole,
+  persistConfig,
+  removeGuildConfig,
+} from "./config";
+import { EmbedBuilder } from "discord.js";
 import { buildCountdown, buildQuick } from "./embeds";
 
 const bossData = new Map<string, BossData>();
@@ -71,33 +78,18 @@ export async function refreshBossInfos() {
 async function postOrFindMessage(
   ch: TextChannel,
   cfg: GuildConfig,
-  data: BossData,
+  _data: BossData,
 ) {
   if (cfg.messageId) {
     try {
-      await ch.messages.fetch(cfg.messageId);
+      await ch.messages.fetch({ message: cfg.messageId, force: true });
       return;
     } catch {
       cfg.messageId = null;
     }
   }
 
-  try {
-    const msgs = await ch.messages.fetch({ limit: 10 });
-    const bot = msgs.find((m) => m.author.id === ch.client.user?.id);
-
-    if (bot) {
-      cfg.messageId = bot.id;
-      return;
-    }
-  } catch {
-    /* ignore */
-  }
-
-  const msg = await ch.send({
-    embeds: [buildCountdown(data.bossInfo, data.schedule)],
-  });
-  cfg.messageId = msg.id;
+  // Message not found — don't auto-create. Let admins run /setup.
 }
 
 export async function updateAll(client: Client) {
@@ -124,7 +116,9 @@ export async function updateAll(client: Client) {
       await postOrFindMessage(channel, cfg, data);
       if (!cfg.messageId) continue;
 
-      const msg = await channel.messages.fetch(cfg.messageId).catch(() => null);
+      const msg = await channel.messages
+        .fetch({ message: cfg.messageId, force: true })
+        .catch(() => null);
       if (!msg) {
         cfg.messageId = null;
         continue;
@@ -136,6 +130,7 @@ export async function updateAll(client: Client) {
 
         const newMsg = await channel.send({ embeds: [embed] });
         cfg.messageId = newMsg.id;
+        persistConfig(gid);
       } else {
         await msg.edit({ embeds: [embed] });
       }
@@ -163,17 +158,12 @@ export function registerCommands(client: Client) {
         return i.reply({ content: "❌ No permission.", ephemeral: true });
       }
 
-      if (!cfg?.bossName) {
-        return i.reply({
-          content: "⚠️ No boss configured. Use `/setup` first.",
-          ephemeral: true,
-        });
-      }
+      const bossName = i.options.getString("boss", true).toLowerCase();
+      const data = bossData.get(bossName);
 
-      const data = bossData.get(cfg.bossName);
       if (!data) {
         return i.reply({
-          content: "❌ Boss data not loaded yet. Try again soon.",
+          content: `❌ Unknown boss. Available: ${[...bossData.keys()].join(", ")}`,
           ephemeral: true,
         });
       }
@@ -226,14 +216,22 @@ export function registerCommands(client: Client) {
       }
 
       const existing = guildConfigs.get(guild.id);
+
+      // Send initial countdown message
+      const data = bossData.get(bossName)!;
+      const msg = await ch.send({
+        embeds: [buildCountdown(data.bossInfo, data.schedule)],
+      });
+
       guildConfigs.set(guild.id, {
         channelId: ch.id,
-        messageId: null,
+        messageId: msg.id,
         bossName,
         bossRoles: existing?.bossRoles ?? null,
         statusRoles: existing?.statusRoles ?? null,
         lastAlive: null,
       });
+      persistConfig(guild.id);
 
       console.log(`[setup] ${guild.name} → ${ch.name} (${bossName})`);
 
@@ -242,6 +240,7 @@ export function registerCommands(client: Client) {
         ephemeral: true,
       });
 
+      // Run update cycle to set initial status
       try {
         await updateAll(client);
       } catch (err) {
@@ -253,27 +252,181 @@ export function registerCommands(client: Client) {
     if (commandName === "status") {
       const cfg = guildConfigs.get(guild.id);
 
-      if (!hasRole(i, cfg?.statusRoles ?? null)) {
-        return i.reply({ content: "❌ No permission.", ephemeral: true });
-      }
+      const member = await guild.members.fetch(i.user.id).catch(() => null);
+      const isAdmin =
+        member &&
+        (guild.ownerId === member.id ||
+          member.permissions.has(PermissionFlagsBits.ManageChannels));
+
+      const formatRoles = (roles: string[] | null) => {
+        if (roles === null || roles.length === 0) return "Allowed: admin only";
+        return `Allowed: ${roles.map((id) => `<@&${id}>`).join(", ")}`;
+      };
 
       if (!cfg) {
-        return i.reply({ content: "⚠️ Use `/setup` first.", ephemeral: true });
+        const embeds = [
+          new EmbedBuilder()
+            .setColor(0xf39c12)
+            .setTitle("Server Configuration")
+            .setDescription(
+              "⚠️ **No configuration yet.** Run `/setup` to get started.",
+            ),
+        ];
+
+        if (isAdmin) {
+          embeds.push(
+            new EmbedBuilder()
+              .setColor(0xf39c12)
+              .setTitle("Access Restrictions")
+              .addFields({
+                name: "🔒 /boss",
+                value: formatRoles(null),
+                inline: false,
+              }),
+          );
+        }
+
+        return i.reply({ embeds, ephemeral: true });
       }
 
       const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
 
-      let r = `**Boss:** ${cfg.bossName}\nCountdown: ${ch ? `<#${ch.id}>` : "(not found)"}`;
-
-      if (cfg.bossRoles?.length) {
-        r += `\n🔒 /boss: ${cfg.bossRoles.map((id) => `<@&${id}>`).join(", ")}`;
+      // Check if countdown message still exists
+      let msgAlive = false;
+      if (cfg.messageId && ch?.isTextBased()) {
+        const msg = await ch.messages
+          .fetch({ message: cfg.messageId, force: true })
+          .catch(() => null);
+        if (msg) {
+          msgAlive = true;
+        } else {
+          cfg.messageId = null;
+          persistConfig(guild.id);
+        }
       }
 
-      if (cfg.statusRoles?.length) {
-        r += `\n🔒 /status: ${cfg.statusRoles.map((id) => `<@&${id}>`).join(", ")}`;
+      const bossFields = msgAlive
+        ? [
+            {
+              name: "Boss",
+              value: cfg.bossName.replace(/\b\w/g, (c) => c.toUpperCase()),
+              inline: true,
+            },
+            {
+              name: "Channel",
+              value: ch ? `<#${ch.id}>` : "not set",
+              inline: true,
+            },
+          ]
+        : [];
+
+      const embeds = [
+        new EmbedBuilder()
+          .setColor(0x3498db)
+          .setTitle("Boss Configuration")
+          .addFields(
+            ...(msgAlive
+              ? bossFields
+              : [{ name: "Countdown", value: "❌ Not set", inline: false }]),
+          ),
+      ];
+
+      if (isAdmin) {
+        embeds.push(
+          new EmbedBuilder()
+            .setColor(0x3498db)
+            .setTitle("Access Restrictions")
+            .addFields({
+              name: "🔒 /boss",
+              value: formatRoles(cfg.bossRoles),
+              inline: false,
+            }),
+        );
       }
 
-      return i.reply({ content: r, ephemeral: true });
+      return i.reply({ embeds, ephemeral: true });
+    }
+
+    if (commandName === "reset") {
+      const member = await guild.members.fetch(i.user.id);
+
+      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        return i.reply({
+          content: "❌ Need **Manage Channels**.",
+          ephemeral: true,
+        });
+      }
+
+      const cfg = guildConfigs.get(guild.id);
+
+      if (cfg?.channelId && cfg?.messageId) {
+        const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
+        if (ch?.isTextBased()) {
+          const msg = await ch.messages
+            .fetch({ message: cfg.messageId, force: true })
+            .catch(() => null);
+          if (msg) await msg.delete().catch(() => null);
+        }
+      }
+
+      removeGuildConfig(guild.id);
+      console.log(`[reset] ${guild.name} — config wiped`);
+
+      return i.reply({
+        content: "✅ Configuration wiped.",
+        ephemeral: true,
+      });
+    }
+
+    if (commandName === "remove-countdown") {
+      const member = await guild.members.fetch(i.user.id);
+
+      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        return i.reply({
+          content: "❌ Need **Manage Channels**.",
+          ephemeral: true,
+        });
+      }
+
+      const bossName = i.options.getString("boss", true).toLowerCase();
+      const cfg = guildConfigs.get(guild.id);
+
+      if (!cfg) {
+        return i.reply({
+          content: "⚠️ No boss configured. Use `/setup` first.",
+          ephemeral: true,
+        });
+      }
+
+      if (cfg.bossName !== bossName) {
+        return i.reply({
+          content: `⚠️ No countdown for **${bossName}**. Configured boss is **${cfg.bossName}**.`,
+          ephemeral: true,
+        });
+      }
+
+      if (!cfg.messageId) {
+        return i.reply({
+          content: `⚠️ No countdown message for **${bossName}**.`,
+          ephemeral: true,
+        });
+      }
+
+      const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
+      if (ch?.isTextBased()) {
+        const msg = await ch.messages
+          .fetch({ message: cfg.messageId, force: true })
+          .catch(() => null);
+        if (msg) await msg.delete().catch(() => null);
+      }
+
+      cfg.messageId = null;
+      persistConfig(guild.id);
+
+      return i.reply({
+        content: `✅ Countdown message for **${bossName}** deleted.`,
+        ephemeral: true,
+      });
     }
 
     if (commandName === "restrict") {
@@ -290,8 +443,15 @@ export function registerCommands(client: Client) {
       const role = i.options.getRole("role");
       const action = i.options.getString("action");
 
-      if (!cmd || !role || !action) {
+      if (!cmd || !action) {
         return i.reply({ content: "❌ Missing args.", ephemeral: true });
+      }
+
+      if ((action === "add" || action === "remove") && !role) {
+        return i.reply({
+          content: "❌ Select a role to allow or disallow.",
+          ephemeral: true,
+        });
       }
 
       let cfg = guildConfigs.get(guild.id);
@@ -306,17 +466,10 @@ export function registerCommands(client: Client) {
           lastAlive: null,
         };
         guildConfigs.set(guild.id, cfg);
+        persistConfig(guild.id);
       }
 
-      const key =
-        cmd === "boss" ? "bossRoles" : cmd === "status" ? "statusRoles" : null;
-
-      if (!key) {
-        return i.reply({
-          content: "❌ Use `boss` or `status`.",
-          ephemeral: true,
-        });
-      }
+      const key = "bossRoles";
 
       const roles = cfg[key] ?? [];
 
@@ -332,6 +485,7 @@ export function registerCommands(client: Client) {
       }
 
       guildConfigs.set(guild.id, cfg);
+      persistConfig(guild.id);
       return i.reply({ content: `✅ /${cmd} updated.`, ephemeral: true });
     }
   });
