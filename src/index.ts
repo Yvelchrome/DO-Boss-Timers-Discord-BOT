@@ -1,4 +1,5 @@
 import { Client, GatewayIntentBits, ActivityType } from "discord.js";
+import { initConfigs, closeDb } from "./discord/config";
 import {
   registerCommands,
   updateAll,
@@ -14,6 +15,7 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.login(DISCORD_TOKEN);
 client.once("clientReady", async () => {
+  initConfigs();
   console.info(`[BOT] ${client.user?.tag}`);
 
   client.user?.setActivity("Any bugs ? @yvelchrome", {
@@ -37,3 +39,5 @@ client.once("clientReady", async () => {
   }
 });
 registerCommands(client);
+
+process.on("exit", () => closeDb());
