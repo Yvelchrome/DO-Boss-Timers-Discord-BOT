@@ -19,6 +19,12 @@ const commands = [
         .setName("channel")
         .setDescription("Text channel to post the countdown")
         .setRequired(true),
+    )
+    .addStringOption((option) =>
+      option
+        .setName("boss")
+        .setDescription("Boss name to track")
+        .setRequired(true),
     ),
   new SlashCommandBuilder()
     .setName("status")

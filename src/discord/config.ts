@@ -3,6 +3,7 @@ import type { ChatInputCommandInteraction, GuildMember } from "discord.js";
 export type GuildConfig = {
   channelId: string;
   messageId: string | null;
+  bossName: string;
   bossRoles: string[] | null;
   statusRoles: string[] | null;
   lastAlive: boolean | null;

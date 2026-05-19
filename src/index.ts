@@ -2,9 +2,10 @@ import { Client, GatewayIntentBits, ActivityType } from "discord.js";
 import {
   registerCommands,
   updateAll,
-  refreshBossInfo,
-  refreshSchedule,
-} from "./discord/commands.js";
+  refreshAllBosses,
+  refreshSchedules,
+  refreshBossInfos,
+} from "./discord/commands";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error("DISCORD_TOKEN is required");
@@ -19,11 +20,11 @@ client.once("clientReady", async () => {
     type: ActivityType.Watching,
   });
 
-  await Promise.all([refreshSchedule(), refreshBossInfo()]);
+  await refreshAllBosses();
   await updateAll(client);
   setInterval(() => updateAll(client), 60_000);
-  setInterval(refreshSchedule, 60_000);
-  setInterval(refreshBossInfo, 2 * 60 * 60_000);
+  setInterval(refreshSchedules, 60_000);
+  setInterval(refreshBossInfos, 2 * 60 * 60_000);
 
   if (process.env.TEST_MODE === "1") {
     console.log("[test] Flipping alive/dead every 10s");

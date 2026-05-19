@@ -1,11 +1,11 @@
 import { EmbedBuilder } from "discord.js";
-import type { BossSchedule, BossInfo } from "../bossTimers/index.js";
+import type { BossSchedule, BossInfo } from "../bossTimers/types";
 import {
   isBossAlive,
   nextBossSpawnUtcMs,
   lastBossSpawnUtcMs,
-} from "../bossTimers/index.js";
-import { titleCase } from "./config.js";
+} from "../bossTimers";
+import { titleCase } from "./config";
 
 export function timestamp(ms: number): string {
   return `<t:${Math.floor(ms / 1000)}:R>`;
