@@ -107,44 +107,4 @@ export function buildCountdown(
     });
 }
 
-export function buildQuick(
-  bossInfo: BossInfo | null,
-  schedule: BossSchedule,
-  channelId?: string,
-): EmbedBuilder {
-  if (!bossInfo) {
-    return new EmbedBuilder()
-      .setColor(0xe74c3c)
-      .setDescription("Error: The boss info is not available");
-  }
 
-  const { alive, status } = buildStatus(Date.now(), schedule);
-
-  const lines: string[] = [
-    SEPARATOR,
-    `**${bossInfo.name}**`,
-    SEPARATOR,
-    "",
-    status,
-    "",
-    `**Location:** ${bossInfo.mapName}`,
-    `**HP:** ${bossInfo.hp.toLocaleString()}`,
-    `**Level:** ${bossInfo.level}`,
-  ];
-
-  if (channelId) {
-    lines.push("", SEPARATOR, "", `Countdown channel: <#${channelId}>`);
-  }
-
-  return new EmbedBuilder()
-    .setColor(alive ? 0x2ecc71 : 0xe74c3c)
-    .setDescription(
-      `${lines.join("\n")}\n\n${SEPARATOR}\nData from the Digital Odyssey wiki API`,
-    )
-    .setURL(URL)
-    .addFields({
-      name: "Links",
-      value: `[Web Version](${URL})`,
-      inline: false,
-    });
-}

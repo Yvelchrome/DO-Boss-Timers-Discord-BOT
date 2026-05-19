@@ -19,17 +19,7 @@ async function register() {
 
   const commands = [
     new SlashCommandBuilder()
-      .setName("boss")
-      .setDescription("Check boss spawn timer")
-      .addStringOption((option) =>
-        option
-          .setName("boss")
-          .setDescription("Boss name to check")
-          .setRequired(true)
-          .addChoices(...(bossChoices ?? [])),
-      ),
-    new SlashCommandBuilder()
-      .setName("setup")
+      .setName("timer-setup")
       .setDescription("Set up the boss timer countdown channel")
       .addChannelOption((option) =>
         option
@@ -45,13 +35,13 @@ async function register() {
           .addChoices(...(bossChoices ?? [])),
       ),
     new SlashCommandBuilder()
-      .setName("status")
+      .setName("timer-status")
       .setDescription("Check boss timer setup status for this server"),
     new SlashCommandBuilder()
-      .setName("reset")
+      .setName("timer-reset")
       .setDescription("Wipe boss timer configuration for this server (admin only)"),
     new SlashCommandBuilder()
-      .setName("remove-countdown")
+      .setName("timer-remove")
       .setDescription("Delete the countdown message for a boss (admin only)")
       .addStringOption((option) =>
         option
@@ -59,35 +49,6 @@ async function register() {
           .setDescription("Boss whose countdown to remove")
           .setRequired(true)
           .addChoices(...(bossChoices ?? [])),
-      ),
-    new SlashCommandBuilder()
-      .setName("restrict")
-      .setDescription("Restrict /boss or /status to specific roles (admin only)")
-      .addStringOption((option) =>
-        option
-          .setName("command")
-          .setDescription("Which command to restrict")
-          .setRequired(true)
-          .addChoices(
-            { name: "boss", value: "boss" },
-          ),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("action")
-          .setDescription("Allow or disallow a role, or clear all")
-          .setRequired(true)
-          .addChoices(
-            { name: "allow role", value: "add" },
-            { name: "disallow role", value: "remove" },
-            { name: "clear all restrictions", value: "clear" },
-          ),
-      )
-      .addRoleOption((option) =>
-        option
-          .setName("role")
-          .setDescription("Role to allow or disallow (not needed for clear)")
-          .setRequired(false),
       ),
   ].map((command) => command.toJSON());
 
