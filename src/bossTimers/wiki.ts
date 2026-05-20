@@ -20,7 +20,9 @@ export async function fetchBossInfo(
   monsterId: string,
 ): Promise<BossInfo | null> {
   try {
-    const res = await fetch(`${WIKI_API}/monsters?id=${monsterId}`);
+    const res = await fetch(`${WIKI_API}/monsters?id=${monsterId}`, {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!res.ok) {
       throw new Error(`Wiki API failed: ${res.status} ${res.statusText}`);
     }

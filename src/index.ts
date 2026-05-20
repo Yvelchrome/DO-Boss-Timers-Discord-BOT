@@ -14,22 +14,35 @@ const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.login(DISCORD_TOKEN);
 client.once("clientReady", async () => {
-  initConfigs();
-  console.info(`[BOT] ${client.user?.tag}`);
+  try {
+    initConfigs();
+    console.info(`[BOT] ${client.user?.tag}`);
 
-  client.user?.setActivity("Any bugs ? @yvelchrome", {
-    type: ActivityType.Watching,
-  });
+    client.user?.setActivity("Any bugs ? @yvelchrome", {
+      type: ActivityType.Watching,
+    });
 
-  await refreshAllBosses();
-  await updateAll(client);
-
-  setInterval(async () => {
-    await refreshTimers();
+    await refreshAllBosses();
     await updateAll(client);
-  }, 10_000);
-  setInterval(refreshAllBosses, 2 * 60 * 60_000);
+
+    setInterval(async () => {
+      await refreshTimers();
+      await updateAll(client);
+    }, 10_000);
+    setInterval(refreshAllBosses, 2 * 60 * 60_000);
+  } catch (err) {
+    console.error("[BOT] Startup failed:", (err as Error).message);
+  }
 });
 registerCommands(client);
 
-process.on("exit", () => closeDb());
+let shuttingDown = false;
+function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  closeDb();
+  process.exit(0);
+}
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
+process.on("exit", () => { if (!shuttingDown) closeDb(); });

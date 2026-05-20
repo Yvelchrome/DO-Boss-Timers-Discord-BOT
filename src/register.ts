@@ -14,7 +14,7 @@ async function register() {
   const bosses = await fetchRaidBosses();
   const bossChoices =
     bosses.length > 0
-      ? bosses.map((boss) => ({
+      ? bosses.slice(0, 25).map((boss) => ({
           name: boss.monster_name,
           value: boss.monster_id,
         }))
