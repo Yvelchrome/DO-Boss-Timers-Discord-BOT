@@ -193,6 +193,14 @@ export function registerCommands(client: Client) {
         });
       }
 
+      const existingCfg = guildConfigs.get(guild.id);
+      if (existingCfg?.bossId === bossId && existingCfg.messageId) {
+        return i.reply({
+          content: `⚠️ **${bossDisplayName(bossId)}** already has an active countdown. Run \`/timer-status\` to check, \`/timer-remove\` to delete the message first, or \`/timer-reset\` to wipe everything.`,
+          ephemeral: true,
+        });
+      }
+
       const data = bossData.get(bossId);
       if (!data) return;
 
@@ -230,14 +238,14 @@ export function registerCommands(client: Client) {
     if (commandName === "timer-status") {
       const cfg = guildConfigs.get(guild.id);
 
-      if (!cfg) {
+      if (!cfg || !cfg.messageId) {
         return i.reply({
           embeds: [
             new EmbedBuilder()
               .setColor(0xf39c12)
               .setTitle("Server Configuration")
               .setDescription(
-                "⚠️ **No configuration yet.** Run \`/timer-setup\` to get started.",
+                "⚠️ **No active countdown.** Run \`/timer-setup\` to get started.",
               ),
           ],
           ephemeral: true,
@@ -278,18 +286,7 @@ export function registerCommands(client: Client) {
           new EmbedBuilder()
             .setColor(0x3498db)
             .setTitle("Boss Configuration")
-            .addFields(
-              ...(msgAlive || !cfg.channelId
-                ? bossFields
-                : [
-                    ...bossFields,
-                    {
-                      name: "Countdown",
-                      value: "❌ Message deleted. Run \`/timer-setup\` to restore.",
-                      inline: false,
-                    },
-                  ]),
-            ),
+            .addFields(...bossFields),
         ],
         ephemeral: true,
       });
