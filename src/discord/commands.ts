@@ -19,15 +19,21 @@ function bossDisplayName(monsterId: string): string {
 
 export async function refreshAllBosses() {
   const bosses = await fetchRaidBosses();
-  bossData.clear();
+  const entries: [string, BossData][] = [];
 
   for (const raidBoss of bosses) {
+    const existing = bossData.get(raidBoss.monster_id);
     const bossInfo = await fetchBossInfo(raidBoss.monster_id);
-    bossData.set(raidBoss.monster_id, {
-      raidBoss,
-      bossInfo,
-      spawnedAtMs: raidBoss.status !== "respawning" ? Date.now() : null,
-    });
+    entries.push([
+      raidBoss.monster_id,
+      {
+        raidBoss,
+        bossInfo,
+        spawnedAtMs:
+          existing?.spawnedAtMs ??
+          (raidBoss.status !== "respawning" ? Date.now() : null),
+      },
+    ]);
 
     if (bossInfo) {
       console.info(
@@ -40,6 +46,8 @@ export async function refreshAllBosses() {
     }
   }
 
+  bossData.clear();
+  for (const [id, data] of entries) bossData.set(id, data);
   console.log(`[data] Loaded ${bossData.size} boss(es)`);
 }
 
@@ -80,7 +88,7 @@ async function postOrFindMessage(ch: TextChannel, cfg: GuildConfig) {
     }
   }
 
-  // Message not found — don't auto-create. Let admins run /setup.
+  // Message not found — don't auto-create. Let admins run /timer-setup.
 }
 
 export async function updateAll(client: Client) {
@@ -185,8 +193,6 @@ export function registerCommands(client: Client) {
         });
       }
 
-      const existing = guildConfigs.get(guild.id);
-
       const data = bossData.get(bossId);
       if (!data) return;
 
@@ -200,8 +206,6 @@ export function registerCommands(client: Client) {
         channelId: ch.id,
         messageId: msg.id,
         bossId,
-        bossRoles: existing?.bossRoles ?? null,
-        statusRoles: existing?.statusRoles ?? null,
         lastAlive: null,
       });
       persistConfig(guild.id);
@@ -233,7 +237,7 @@ export function registerCommands(client: Client) {
               .setColor(0xf39c12)
               .setTitle("Server Configuration")
               .setDescription(
-                "⚠️ **No configuration yet.** Run `/setup` to get started.",
+                "⚠️ **No configuration yet.** Run \`/timer-setup\` to get started.",
               ),
           ],
           ephemeral: true,
@@ -281,7 +285,7 @@ export function registerCommands(client: Client) {
                     ...bossFields,
                     {
                       name: "Countdown",
-                      value: "❌ Message deleted. Run `/setup` to restore.",
+                      value: "❌ Message deleted. Run \`/timer-setup\` to restore.",
                       inline: false,
                     },
                   ]),
@@ -337,7 +341,7 @@ export function registerCommands(client: Client) {
 
       if (!cfg) {
         return i.reply({
-          content: "⚠️ No boss configured. Use `/setup` first.",
+          content: "⚠️ No boss configured. Use \`/timer-setup\` first.",
           ephemeral: true,
         });
       }

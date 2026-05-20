@@ -4,8 +4,6 @@ export type GuildConfig = {
   channelId: string;
   messageId: string | null;
   bossId: string;
-  bossRoles: string[] | null;
-  statusRoles: string[] | null;
   lastAlive: boolean | null;
 };
 

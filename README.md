@@ -1,4 +1,4 @@
-# DO | Boss Timers — Discord Bot
+# DO | Boss Timers - Discord Bot
 
 Discord bot that displays a live spawn countdown for the Digital Odyssey bosses.
 
@@ -9,32 +9,32 @@ Discord bot that displays a live spawn countdown for the Digital Odyssey bosses.
 ### First setup
 
 1. Add the bot to your server
-2. **`/timer-setup #channel boss_name`** — pick a text channel and a boss
-3. The bot sends a countdown message and keeps it updated every 60s
+2. **`/timer-setup <channel> <boss>`** - pick a text channel and a boss
+3. The bot sends a countdown message and keeps it updated every 10s
 
 ### Commands
 
-#### `/timer-setup <channel> <boss>` — Set up countdown
-Sends a countdown message in the chosen channel and auto-updates it every 60s.
+#### `/timer-setup <channel> <boss>` - Set up countdown
+Sends a countdown message in the chosen channel and auto-updates it every 10s.
 
 - **Requires:** `Manage Channels` permission
 - Bot needs `Send Messages` and `Embed Links` in the channel
 
-#### `/timer-status` — View configuration
+#### `/timer-status` - View configuration
 Shows the configured boss and countdown channel.
 
 - **Usable by:** everyone (visible for self)
 - **Auto-detection:** if someone deletes the countdown message, the bot detects it on next `/timer-status` and removes the boss info. Run `/timer-setup` to restore it.
 
-#### `/timer-remove <boss>` — Delete the message
+#### `/timer-remove <boss>` - Delete the message
 Removes the countdown message without wiping configuration.
 
 - **Requires:** `Manage Channels` permission
 - Config is kept, only the message is deleted
 - To restore: `/timer-setup`
 
-#### `/timer-reset` — Wipe everything
-Deletes the countdown message AND all server configuration (boss, channel).
+#### `/timer-reset` - Wipe everything
+Deletes the countdown messages AND all server configuration (boss, channel).
 
 - **Requires:** `Manage Channels` permission
 - Irreversible. Everything must be reconfigured.
