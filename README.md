@@ -79,8 +79,7 @@ bun run start          # start the bot
 
 ### Internals
 
-- Config stored in memory per guild (lost on bot server restart)
-- Countdown computed client-side: `anchor + N * cycle`
-- Boss info fetched from wiki proxy every 2h
-- Supabase schedule sync every 60s (falls back to hardcoded defaults on miss)
-- Single embed per boss, edited in place every 60s
+- Config stored in local SQLite (persists across restarts)
+- Boss timers fetched from [raid-timer API](https://thedigitalodyssey.com/api/raid-timer) every 10sec (Website default behavior)
+- Boss info fetched from [wiki API](https://thedigitalodyssey.com/api/wiki) every 2h
+- Single embed per boss, edited in place every 10s

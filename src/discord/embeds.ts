@@ -1,10 +1,6 @@
 import { EmbedBuilder } from "discord.js";
-import type { BossSchedule, BossInfo } from "../bossTimers/types";
-import {
-  isBossAlive,
-  nextBossSpawnUtcMs,
-  lastBossSpawnUtcMs,
-} from "../bossTimers";
+import type { RaidBoss, BossInfo } from "../bossTimers/types";
+import { isBossAlive } from "../bossTimers/bosses";
 import { titleCase } from "./config";
 
 export function timestamp(ms: number): string {
@@ -12,23 +8,20 @@ export function timestamp(ms: number): string {
 }
 
 function buildStatus(
-  now: number,
-  schedule: BossSchedule,
+  raidBoss: RaidBoss,
+  spawnedAtMs: number | null,
 ): { alive: boolean; status: string } {
-  const alive =
-    (globalThis as any).__testFlipAlive ?? isBossAlive(now, schedule);
-  const next = nextBossSpawnUtcMs(now, schedule);
-  const lastSpawn = lastBossSpawnUtcMs(now, schedule);
-  const respawnMin = schedule.respawnWaitMs / 60_000;
+  const alive = isBossAlive(raidBoss);
+  const respawnMin = raidBoss.respawn_sec / 60;
   const respawnLabel = Number.isInteger(respawnMin)
     ? `${respawnMin} min`
     : `${Math.floor(respawnMin)}m ${Math.round((respawnMin % 1) * 60)}s`;
 
   let status = "";
   if (alive) {
-    if (lastSpawn) status = `**Spawned:** ${timestamp(lastSpawn)}\n`;
+    status = `**Spawned:** ${timestamp(spawnedAtMs ?? Date.now())}\n`;
   } else {
-    status = `**Next spawn:** ${timestamp(next)}\n`;
+    status = `**Next spawn:** ${timestamp(raidBoss.next_spawn_ts * 1000)}\n`;
   }
   status += `**Cycle:** ${respawnLabel}`;
 
@@ -36,19 +29,20 @@ function buildStatus(
 }
 
 const SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-const URL = "https://mistgg.github.io/Odyssey-Calc/#/timers";
+const URL = "https://thedigitalodyssey.com/raid-timer";
 
 export function buildCountdown(
   bossInfo: BossInfo | null,
-  schedule: BossSchedule,
+  raidBoss: RaidBoss,
+  spawnedAtMs: number | null,
 ): EmbedBuilder {
-  if (!bossInfo) {
+  if (!bossInfo || !raidBoss) {
     return new EmbedBuilder()
       .setColor(0xe74c3c)
       .setDescription("Error: The boss info is not available");
   }
 
-  const { alive, status } = buildStatus(Date.now(), schedule);
+  const { alive, status } = buildStatus(raidBoss, spawnedAtMs);
 
   const lines: string[] = [
     SEPARATOR,
@@ -57,7 +51,7 @@ export function buildCountdown(
     "",
     status,
     "",
-    `**Location:** ${bossInfo.mapName}`,
+    `**Location:** ${raidBoss.map_name}`,
     `**HP:** ${bossInfo.hp.toLocaleString()}`,
     `**Level:** ${bossInfo.level}`,
   ];
@@ -69,7 +63,9 @@ export function buildCountdown(
       lines.push("", "**Drops:**");
 
       for (const drop of bossInfo.drops) {
-        lines.push(`• **${drop.itemName}** - x1 - ${titleCase(drop.dropType)}`);
+        lines.push(
+          `• **${drop.item_name}** - x1 - ${titleCase(drop.drop_type)}`,
+        );
       }
     }
 
@@ -87,7 +83,7 @@ export function buildCountdown(
 
         for (const reward of items) {
           lines.push(
-            `• **${reward.itemName}** - ${reward.qty} - ${reward.rate}`,
+            `• **${reward.item_name}** - ${reward.qty} - ${reward.rate}`,
           );
         }
       }
@@ -97,7 +93,7 @@ export function buildCountdown(
   return new EmbedBuilder()
     .setColor(alive ? 0x2ecc71 : 0xe74c3c)
     .setDescription(
-      `${lines.join("\n")}\n\n${SEPARATOR}\nData from the Digital Odyssey wiki API`,
+      `${lines.join("\n")}\n\n${SEPARATOR}\nData from the Digital Odyssey API`,
     )
     .setURL(URL)
     .addFields({
@@ -106,5 +102,3 @@ export function buildCountdown(
       inline: false,
     });
 }
-
-

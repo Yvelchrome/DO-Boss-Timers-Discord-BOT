@@ -1,5 +1,5 @@
 import { REST, Routes, SlashCommandBuilder } from "discord.js";
-import { fetchBosses } from "./bossTimers/bosses";
+import { fetchRaidBosses } from "./bossTimers/bosses";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
@@ -11,10 +11,13 @@ const rest = new REST().setToken(DISCORD_TOKEN);
 async function register() {
   if (!CLIENT_ID) throw new Error("CLIENT_ID is required");
 
-  const bosses = await fetchBosses();
+  const bosses = await fetchRaidBosses();
   const bossChoices =
     bosses.length > 0
-      ? bosses.map((b) => ({ name: b.bossId, value: b.bossId }))
+      ? bosses.map((boss) => ({
+          name: boss.monster_name,
+          value: boss.monster_id,
+        }))
       : undefined;
 
   const commands = [
@@ -39,7 +42,9 @@ async function register() {
       .setDescription("Check boss timer setup status for this server"),
     new SlashCommandBuilder()
       .setName("timer-reset")
-      .setDescription("Wipe boss timer configuration for this server (admin only)"),
+      .setDescription(
+        "Wipe boss timer configuration for this server (admin only)",
+      ),
     new SlashCommandBuilder()
       .setName("timer-remove")
       .setDescription("Delete the countdown message for a boss (admin only)")

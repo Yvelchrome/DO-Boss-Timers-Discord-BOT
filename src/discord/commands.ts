@@ -1,79 +1,76 @@
 import { PermissionFlagsBits, type Client, type TextChannel } from "discord.js";
-import type { BossSchedule, BossData } from "../bossTimers/types";
+import type { BossData } from "../bossTimers/types";
+import { fetchRaidBosses, isBossAlive } from "../bossTimers/bosses";
+import { fetchBossInfo } from "../bossTimers/wiki";
 import {
-  isBossAlive,
-  getDefaultBossSchedule,
-  fetchBossSchedule,
-  fetchBossInfo,
-  fetchBosses,
-} from "../bossTimers";
-import { GuildConfig, guildConfigs, persistConfig, removeGuildConfig } from "./config";
+  GuildConfig,
+  guildConfigs,
+  persistConfig,
+  removeGuildConfig,
+} from "./config";
 import { EmbedBuilder } from "discord.js";
 import { buildCountdown } from "./embeds";
 
 const bossData = new Map<string, BossData>();
 
+function bossDisplayName(monsterId: string): string {
+  return bossData.get(monsterId)?.raidBoss.monster_name ?? monsterId;
+}
+
 export async function refreshAllBosses() {
-  const bosses = await fetchBosses();
+  const bosses = await fetchRaidBosses();
+  bossData.clear();
 
-  for (const boss of bosses) {
-    let schedule: BossSchedule;
-
-    try {
-      const remote = await fetchBossSchedule(boss.bossId);
-      schedule = remote ?? getDefaultBossSchedule();
-    } catch {
-      schedule = getDefaultBossSchedule();
-    }
-
-    const bossInfo = await fetchBossInfo(boss.wikiId);
+  for (const raidBoss of bosses) {
+    const bossInfo = await fetchBossInfo(raidBoss.monster_id);
+    bossData.set(raidBoss.monster_id, {
+      raidBoss,
+      bossInfo,
+      spawnedAtMs: raidBoss.status !== "respawning" ? Date.now() : null,
+    });
 
     if (bossInfo) {
-      console.info(`[${boss.bossId}] ${bossInfo.name} — ${bossInfo.mapName}`);
+      console.info(
+        `[${raidBoss.monster_id}] ${bossInfo.name} — ${raidBoss.map_name}`,
+      );
+    } else {
+      console.info(
+        `[${raidBoss.monster_id}] ${raidBoss.monster_name} (no wiki)`,
+      );
     }
-
-    bossData.set(boss.bossId, {
-      bossId: boss.bossId,
-      wikiId: boss.wikiId,
-      schedule,
-      bossInfo,
-    });
   }
 
   console.log(`[data] Loaded ${bossData.size} boss(es)`);
 }
 
-export async function refreshSchedules() {
-  for (const [name, data] of bossData) {
-    try {
-      const remote = await fetchBossSchedule(name);
+export async function refreshTimers() {
+  const bosses = await fetchRaidBosses();
 
-      if (remote && remote.updatedAtMs > data.schedule.updatedAtMs) {
-        data.schedule = remote;
-        console.log(`[${name}] Schedule synced`);
+  for (const raidBoss of bosses) {
+    const existing = bossData.get(raidBoss.monster_id);
+    if (existing) {
+      if (
+        existing.raidBoss.status === "respawning" &&
+        raidBoss.status !== "respawning"
+      ) {
+        existing.spawnedAtMs = Date.now();
+      } else if (raidBoss.status === "respawning") {
+        existing.spawnedAtMs = null;
       }
-    } catch (err) {
-      console.error(`[${name}] schedule:`, (err as Error).message);
+      existing.raidBoss = raidBoss;
+    } else {
+      const bossInfo = await fetchBossInfo(raidBoss.monster_id);
+      bossData.set(raidBoss.monster_id, {
+        raidBoss,
+        bossInfo,
+        spawnedAtMs: raidBoss.status !== "respawning" ? Date.now() : null,
+      });
+      console.info(`[boss] Auto-discovered ${raidBoss.monster_name}`);
     }
   }
 }
 
-export async function refreshBossInfos() {
-  for (const [name, data] of bossData) {
-    const info = await fetchBossInfo(data.wikiId);
-
-    if (info) {
-      data.bossInfo = info;
-      console.info(`[${name}] Wiki refreshed — ${info.name}`);
-    }
-  }
-}
-
-async function postOrFindMessage(
-  ch: TextChannel,
-  cfg: GuildConfig,
-  _data: BossData,
-) {
+async function postOrFindMessage(ch: TextChannel, cfg: GuildConfig) {
   if (cfg.messageId) {
     try {
       await ch.messages.fetch({ message: cfg.messageId, force: true });
@@ -88,15 +85,17 @@ async function postOrFindMessage(
 
 export async function updateAll(client: Client) {
   for (const [gid, cfg] of guildConfigs) {
-    if (!cfg.channelId || !cfg.bossName) continue;
+    if (!cfg.channelId || !cfg.bossId) continue;
 
-    const data = bossData.get(cfg.bossName);
+    const data = bossData.get(cfg.bossId);
     if (!data) continue;
 
-    const now = Date.now();
-    const alive =
-      (globalThis as any).__testFlipAlive ?? isBossAlive(now, data.schedule);
-    const embed = buildCountdown(data.bossInfo, data.schedule);
+    const alive = isBossAlive(data.raidBoss);
+    const embed = buildCountdown(
+      data.bossInfo,
+      data.raidBoss,
+      data.spawnedAtMs,
+    );
 
     try {
       const guild = await client.guilds.fetch(gid).catch(() => null);
@@ -107,7 +106,7 @@ export async function updateAll(client: Client) {
         .catch(() => null)) as TextChannel | null;
       if (!channel) continue;
 
-      await postOrFindMessage(channel, cfg, data);
+      await postOrFindMessage(channel, cfg);
       if (!cfg.messageId) continue;
 
       const msg = await channel.messages
@@ -163,10 +162,10 @@ export function registerCommands(client: Client) {
         });
       }
 
-      const bossName = i.options.getString("boss", true).toLowerCase();
-      if (!bossData.has(bossName)) {
+      const bossId = i.options.getString("boss", true).toLowerCase();
+      if (!bossData.has(bossId)) {
         return i.reply({
-          content: `❌ Unknown boss. Available: ${[...bossData.keys()].join(", ")}`,
+          content: `❌ Unknown boss. Available: ${[...bossData.keys()].map(bossDisplayName).join(", ")}`,
           ephemeral: true,
         });
       }
@@ -188,26 +187,30 @@ export function registerCommands(client: Client) {
 
       const existing = guildConfigs.get(guild.id);
 
-      // Send initial countdown message
-      const data = bossData.get(bossName)!;
+      const data = bossData.get(bossId);
+      if (!data) return;
+
       const msg = await ch.send({
-        embeds: [buildCountdown(data.bossInfo, data.schedule)],
+        embeds: [
+          buildCountdown(data.bossInfo, data.raidBoss, data.spawnedAtMs),
+        ],
       });
 
       guildConfigs.set(guild.id, {
         channelId: ch.id,
         messageId: msg.id,
-        bossName,
+        bossId,
         bossRoles: existing?.bossRoles ?? null,
         statusRoles: existing?.statusRoles ?? null,
         lastAlive: null,
       });
       persistConfig(guild.id);
 
-      console.log(`[setup] ${guild.name} → ${ch.name} (${bossName})`);
+      const displayName = bossDisplayName(bossId);
+      console.log(`[setup] ${guild.name} → ${ch.name} (${bossId})`);
 
       await i.reply({
-        content: `✅ ${bossName} countdown in ${ch}!`,
+        content: `✅ ${displayName} countdown in ${ch}!`,
         ephemeral: true,
       });
 
@@ -237,36 +240,34 @@ export function registerCommands(client: Client) {
         });
       }
 
-      const ch = await guild.channels.fetch(cfg.channelId).catch(() => null);
+      const ch = cfg.channelId
+        ? await guild.channels.fetch(cfg.channelId).catch(() => null)
+        : null;
 
-      // Check if countdown message still exists
-      let msgAlive = false;
-      if (cfg.messageId && ch?.isTextBased()) {
-        const msg = await ch.messages
-          .fetch({ message: cfg.messageId, force: true })
-          .catch(() => null);
-        if (msg) {
-          msgAlive = true;
-        } else {
-          cfg.messageId = null;
-          persistConfig(guild.id);
-        }
-      }
+      const bossFields = [
+        {
+          name: "Boss",
+          value: bossDisplayName(cfg.bossId),
+          inline: true,
+        },
+        {
+          name: "Channel",
+          value: ch ? `<#${ch.id}>` : "not set",
+          inline: true,
+        },
+      ];
 
-      const bossFields = msgAlive
-        ? [
-            {
-              name: "Boss",
-              value: cfg.bossName.replace(/\b\w/g, (c) => c.toUpperCase()),
-              inline: true,
-            },
-            {
-              name: "Channel",
-              value: ch ? `<#${ch.id}>` : "not set",
-              inline: true,
-            },
-          ]
-        : [];
+      const msgAlive =
+        cfg.messageId && ch?.isTextBased()
+          ? await ch.messages
+              .fetch({ message: cfg.messageId, force: true })
+              .then(() => true)
+              .catch(() => {
+                cfg.messageId = null;
+                persistConfig(guild.id);
+                return false;
+              })
+          : false;
 
       return i.reply({
         embeds: [
@@ -274,9 +275,16 @@ export function registerCommands(client: Client) {
             .setColor(0x3498db)
             .setTitle("Boss Configuration")
             .addFields(
-              ...(msgAlive
+              ...(msgAlive || !cfg.channelId
                 ? bossFields
-                : [{ name: "Countdown", value: "❌ Not set", inline: false }]),
+                : [
+                    ...bossFields,
+                    {
+                      name: "Countdown",
+                      value: "❌ Message deleted. Run `/setup` to restore.",
+                      inline: false,
+                    },
+                  ]),
             ),
         ],
         ephemeral: true,
@@ -324,7 +332,7 @@ export function registerCommands(client: Client) {
         });
       }
 
-      const bossName = i.options.getString("boss", true).toLowerCase();
+      const bossId = i.options.getString("boss", true).toLowerCase();
       const cfg = guildConfigs.get(guild.id);
 
       if (!cfg) {
@@ -334,16 +342,19 @@ export function registerCommands(client: Client) {
         });
       }
 
-      if (cfg.bossName !== bossName) {
+      const cfgDisplayName = bossDisplayName(cfg.bossId);
+      const inputDisplayName = bossDisplayName(bossId);
+
+      if (cfg.bossId !== bossId) {
         return i.reply({
-          content: `⚠️ No countdown for **${bossName}**. Configured boss is **${cfg.bossName}**.`,
+          content: `⚠️ No countdown for **${inputDisplayName}**. Configured boss is **${cfgDisplayName}**.`,
           ephemeral: true,
         });
       }
 
       if (!cfg.messageId) {
         return i.reply({
-          content: `⚠️ No countdown message for **${bossName}**.`,
+          content: `⚠️ No countdown message for **${inputDisplayName}**.`,
           ephemeral: true,
         });
       }
@@ -360,10 +371,9 @@ export function registerCommands(client: Client) {
       persistConfig(guild.id);
 
       return i.reply({
-        content: `✅ Countdown message for **${bossName}** deleted.`,
+        content: `✅ Countdown message for **${inputDisplayName}** deleted.`,
         ephemeral: true,
       });
     }
-
   });
 }

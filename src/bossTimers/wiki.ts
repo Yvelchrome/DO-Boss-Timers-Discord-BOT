@@ -1,47 +1,40 @@
 import type { BossInfo } from "./types";
+import { WIKI_API } from "../api";
 
-type MonsterPayload = {
-  name: string;
-  level: number;
-  hp: number;
-  locations: { map_name: string }[];
-  drops: { item_name: string; drop_type: string }[];
+type RawRankReward = {
+  item_name: string;
+  rate_permil: number;
+  min: number;
+  max: number;
+};
+
+type RawMonster = Omit<BossInfo, "rewards"> & {
   raid_rankings: {
     start: number;
     end: number;
-    rewards: {
-      item_name: string;
-      rate_permil: number;
-      min: number;
-      max: number;
-    }[];
+    rewards: RawRankReward[];
   }[];
 };
 
-export async function fetchBossInfo(wikiId: string): Promise<BossInfo | null> {
-  const WIKI_API_BASE =
-    "https://odyssey-proxy.qawsar-ahmed.workers.dev/proxy/api/wiki";
-
+export async function fetchBossInfo(
+  monsterId: string,
+): Promise<BossInfo | null> {
   try {
-    const res = await fetch(`${WIKI_API_BASE}/monsters?id=${wikiId}`);
+    const res = await fetch(`${WIKI_API}/monsters?id=${monsterId}`);
     if (!res.ok) {
       throw new Error(`Wiki API failed: ${res.status} ${res.statusText}`);
     }
 
-    const monster: MonsterPayload = await res.json();
+    const monster: RawMonster = await res.json();
 
     return {
       name: monster.name,
-      mapName: monster.locations[0].map_name,
-      hp: monster.hp,
       level: monster.level,
-      drops: monster.drops.map((drop) => ({
-        itemName: drop.item_name,
-        dropType: drop.drop_type,
-      })),
+      hp: monster.hp,
+      drops: monster.drops,
       rewards: monster.raid_rankings.flatMap((band) =>
         band.rewards.map((reward) => ({
-          itemName: reward.item_name,
+          item_name: reward.item_name,
           rank:
             band.start === 1
               ? `Top ${band.end}`
@@ -58,7 +51,10 @@ export async function fetchBossInfo(wikiId: string): Promise<BossInfo | null> {
       ),
     };
   } catch (err) {
-    console.error(`[wiki] fetch failed for ${wikiId}:`, (err as Error).message);
+    console.error(
+      `[wiki] fetch failed for ${monsterId}:`,
+      (err as Error).message,
+    );
     return null;
   }
 }
