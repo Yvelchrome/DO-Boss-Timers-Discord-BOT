@@ -23,7 +23,7 @@ async function register() {
   const commands = [
     new SlashCommandBuilder()
       .setName("timer-setup")
-      .setDescription("Set up the boss timer countdown channel")
+      .setDescription("Set up the boss timer countdown channel (admin only)")
       .addChannelOption((option) =>
         option
           .setName("channel")

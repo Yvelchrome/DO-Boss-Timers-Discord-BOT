@@ -18,7 +18,7 @@ client.once("clientReady", async () => {
     initConfigs();
     console.info(`[BOT] ${client.user?.tag}`);
 
-    client.user?.setActivity("Any bugs ? @yvelchrome", {
+    client.user?.setActivity("Feedback ? @yvelchrome", {
       type: ActivityType.Watching,
     });
 
@@ -45,4 +45,6 @@ function shutdown() {
 }
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
-process.on("exit", () => { if (!shuttingDown) closeDb(); });
+process.on("exit", () => {
+  if (!shuttingDown) closeDb();
+});
