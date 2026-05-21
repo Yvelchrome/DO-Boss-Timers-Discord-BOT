@@ -77,32 +77,6 @@ bun run start          # start the bot
 | `bun run clean` | Remove all registered commands |
 | `bun run register` | Register slash commands |
 
-### Deployment (Oracle Cloud Always Free)
-
-1. Create an [Oracle Cloud account](https://signup.cloud.oracle.com/) (credit card required for verification, 0€ charged)
-2. Create a VM instance: Ubuntu 22.04/24.04, ARM (Ampere A1) — free tier gives up to 4 OCPU + 24 GB RAM
-3. SSH into the instance
-4. Run the setup script:
-
-```bash
-# Edit deploy/setup-vm.sh first: set REPO_URL to your git remote
-# Then copy and run on the VM:
-bash deploy/setup-vm.sh
-```
-
-5. Fill in your tokens:
-```bash
-nano .env   # DISCORD TOKEN + CLIENT_ID
-```
-
-6. Start the bot:
-```bash
-sudo systemctl start boss-timer-bot
-sudo journalctl -u boss-timer-bot -f   # check logs
-```
-
-The bot runs via **systemd** — auto-starts on VM reboot, auto-restarts on crash.
-
 ### Internals
 
 - Config stored in local SQLite (persists across restarts)
