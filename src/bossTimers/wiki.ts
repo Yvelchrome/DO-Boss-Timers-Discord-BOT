@@ -27,7 +27,7 @@ export async function fetchBossInfo(
       throw new Error(`Wiki API failed: ${res.status} ${res.statusText}`);
     }
 
-    const monster: RawMonster = await res.json();
+    const monster = (await res.json()) as RawMonster;
 
     return {
       name: monster.name,

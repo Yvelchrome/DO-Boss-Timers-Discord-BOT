@@ -19,9 +19,7 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
     });
     if (!res.ok) throw new Error(`Raid API failed: ${res.status}`);
 
-    const data: {
-      bosses: RaidBoss[];
-    } = await res.json();
+    const data = (await res.json()) as { bosses: RaidBoss[] };
     if (!data.bosses?.length) {
       console.log("[bosses] No bosses returned from raid API");
       return [];

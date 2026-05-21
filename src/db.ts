@@ -37,9 +37,9 @@ db.run(`
 `);
 
 export function loadGuildConfigs(): Map<string, GuildConfig> {
-  const rows: { guild_id: string; config: string }[] = db
+  const rows = db
     .query("SELECT guild_id, config FROM guild_configs")
-    .all();
+    .all() as { guild_id: string; config: string }[];
 
   const map = new Map<string, GuildConfig>();
   for (const row of rows) {
