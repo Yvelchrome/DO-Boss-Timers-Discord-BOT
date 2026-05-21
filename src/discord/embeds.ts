@@ -1,17 +1,16 @@
 import { EmbedBuilder } from "discord.js";
 import type { RaidBoss, BossInfo } from "../bossTimers/types";
-import { isBossAlive } from "../bossTimers/bosses";
-
-function titleCase(v: string): string {
-  const c = v.replace(/[_-]+/g, " ").trim();
-  return c ? c.replace(/\b\w/g, (x) => x.toUpperCase()) : v;
-}
+import { isBossAlive, bossDisplayName } from "../bossTimers/bosses";
+import type { GuildConfig } from "./config";
 
 function timestamp(ms: number): string {
   return `<t:${Math.floor(ms / 1000)}:R>`;
 }
 
-function buildStatus(
+const SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
+const URL = "https://thedigitalodyssey.com/raid-timer";
+
+function buildBossStatus(
   raidBoss: RaidBoss,
   spawnedAtMs: number | null,
 ): { alive: boolean; status: string } {
@@ -32,9 +31,6 @@ function buildStatus(
   return { alive, status };
 }
 
-const SEPARATOR = "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━";
-const URL = "https://thedigitalodyssey.com/raid-timer";
-
 export function buildCountdown(
   bossInfo: BossInfo | null,
   raidBoss: RaidBoss,
@@ -46,7 +42,7 @@ export function buildCountdown(
       .setDescription("Error: The boss info is not available");
   }
 
-  const { alive, status } = buildStatus(raidBoss, spawnedAtMs);
+  const { alive, status } = buildBossStatus(raidBoss, spawnedAtMs);
 
   const lines: string[] = [
     SEPARATOR,
@@ -67,9 +63,7 @@ export function buildCountdown(
       lines.push("", "**Drops:**");
 
       for (const drop of bossInfo.drops) {
-        lines.push(
-          `• **${drop.item_name}** - x1 - ${titleCase(drop.drop_type)}`,
-        );
+        lines.push(`• **${drop.item_name}** - x1 - ${drop.drop_type}`);
       }
     }
 
@@ -105,4 +99,50 @@ export function buildCountdown(
       value: `[Web Version](${URL})`,
       inline: false,
     });
+}
+
+export function buildStatusEmbed(
+  config: GuildConfig,
+  channelName: string | null,
+  userHasRoleFlag: boolean,
+): [EmbedBuilder, EmbedBuilder] {
+  const notifyEmbed = new EmbedBuilder()
+    .setColor(0x3498db)
+    .setTitle("Notifications")
+    .setDescription(
+      config.notifyRoleId && userHasRoleFlag
+        ? `<@&${config.notifyRoleId}> - You will get pinged **${config.notifyMinutes}min** before spawn`
+        : `Click the bell button on the countdown message to get notified **${config.notifyMinutes}min** before spawn.`,
+    );
+
+  const bossEmbed = new EmbedBuilder()
+    .setColor(0x3498db)
+    .setTitle("Boss Configuration")
+    .addFields(
+      {
+        name: "Boss",
+        value: bossDisplayName(config.bossId),
+        inline: true,
+      },
+      {
+        name: "Channel",
+        value: channelName ? `<#${channelName}>` : "not set",
+        inline: true,
+      },
+    );
+
+  return [bossEmbed, notifyEmbed];
+}
+
+export function buildErrorEmbed(message: string): EmbedBuilder {
+  return new EmbedBuilder().setColor(0xe74c3c).setDescription(`❌ ${message}`);
+}
+
+export function buildNoCountdownEmbed(): EmbedBuilder {
+  return new EmbedBuilder()
+    .setColor(0xf39c12)
+    .setTitle("Server Configuration")
+    .setDescription(
+      "⚠️ **No active countdown.** Run `/timer-setup` to get started.",
+    );
 }
