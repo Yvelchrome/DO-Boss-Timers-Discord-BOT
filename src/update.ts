@@ -37,7 +37,7 @@ export async function updateAll(client: Client) {
     );
 
     try {
-      const guild = await client.guilds.fetch(gid).catch(() => null);
+      const guild = await client.guilds.fetch(gid);
       if (!guild) continue;
 
       const channel = (await guild.channels
@@ -116,7 +116,7 @@ export async function updateAll(client: Client) {
 
       cfg.lastAlive = alive;
     } catch (err) {
-      console.error(`[update] ${gid}:`, (err as Error).message);
+      console.error(`[update] ${gid}:`, err instanceof Error ? err.message : String(err));
     }
   }
 }

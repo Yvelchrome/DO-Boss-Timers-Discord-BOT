@@ -2,7 +2,6 @@ import {
   PermissionFlagsBits,
   type Client,
   type TextChannel,
-  type Guild,
   type ChatInputCommandInteraction,
   EmbedBuilder,
 } from "discord.js";
@@ -19,23 +18,6 @@ function requireAdmin(i: ChatInputCommandInteraction): boolean {
   }
 
   return true;
-}
-
-async function editMsgComponents(
-  guild: Guild,
-  channelId: string,
-  messageId: string,
-  components: import("discord.js").ActionRowBuilder<
-    import("discord.js").MessageActionRowComponentBuilder
-  >[],
-) {
-  const ch = await guild.channels.fetch(channelId).catch(() => null);
-  if (ch?.isTextBased()) {
-    const msg = await ch.messages.fetch(messageId).catch(() => null);
-    if (msg) {
-      await msg.edit({ components }).catch(() => null);
-    }
-  }
 }
 
 export function registerCommands(client: Client) {
@@ -133,7 +115,7 @@ export function registerCommands(client: Client) {
       try {
         await updateAll(client);
       } catch (err) {
-        console.error("[setup]", (err as Error).message);
+        console.error("[setup]", err instanceof Error ? err.message : String(err));
       }
       return;
     }
@@ -295,12 +277,11 @@ export function registerCommands(client: Client) {
         persistConfig(guild.id);
 
         if (notifyCfg.channelId && notifyCfg.messageId) {
-          await editMsgComponents(
-            guild,
-            notifyCfg.channelId,
-            notifyCfg.messageId,
-            [],
-          );
+          const ch = await guild.channels.fetch(notifyCfg.channelId).catch(() => null);
+          if (ch?.isTextBased()) {
+            const msg = await ch.messages.fetch(notifyCfg.messageId).catch(() => null);
+            if (msg) await msg.edit({ components: [] }).catch(() => null);
+          }
         }
 
         console.log(`[notify] ${guild.name} → notifications disabled`);
@@ -349,12 +330,11 @@ export function registerCommands(client: Client) {
 
       if (notifyCfg?.channelId && notifyCfg?.messageId) {
         const row = buildNotifyRow(guild.id);
-        await editMsgComponents(
-          guild,
-          notifyCfg.channelId,
-          notifyCfg.messageId,
-          row ? [row] : [],
-        );
+        const ch = await guild.channels.fetch(notifyCfg.channelId).catch(() => null);
+        if (ch?.isTextBased()) {
+          const msg = await ch.messages.fetch(notifyCfg.messageId).catch(() => null);
+          if (msg) await msg.edit({ components: row ? [row] : [] }).catch(() => null);
+        }
       }
 
       console.log(`[notify] ${guild.name} → @${role.name} (${minutes}min)`);

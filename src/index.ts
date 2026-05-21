@@ -6,6 +6,7 @@ import { refreshAllBosses, refreshTimers } from "./bossTimers/bosses";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error("DISCORD_TOKEN is required");
+const ACTIVITY_TEXT = process.env.ACTIVITY_TEXT;
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -15,9 +16,11 @@ client.once("clientReady", async () => {
     initConfigs();
     console.info(`[BOT] ${client.user?.tag}`);
 
-    client.user?.setActivity("Feedback ? @yvelchrome", {
-      type: ActivityType.Watching,
-    });
+    if (ACTIVITY_TEXT) {
+      client.user?.setActivity(ACTIVITY_TEXT, {
+        type: ActivityType.Watching,
+      });
+    }
 
     await refreshAllBosses();
     await updateAll(client);
@@ -28,7 +31,7 @@ client.once("clientReady", async () => {
     }, 10_000);
     setInterval(refreshAllBosses, 2 * 60 * 60_000);
   } catch (err) {
-    console.error("[BOT] Startup failed:", (err as Error).message);
+    console.error("[BOT] Startup failed:", err instanceof Error ? err.message : String(err));
   }
 });
 registerCommands(client);

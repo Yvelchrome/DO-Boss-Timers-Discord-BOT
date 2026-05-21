@@ -2,7 +2,7 @@ import type { BossData, RaidBoss } from "./types";
 import { RAID_TIMER_API } from "../api";
 import { fetchBossInfo } from "./wiki";
 
-export const bossData = new Map<string, BossData>();
+export let bossData = new Map<string, BossData>();
 
 export function isBossAlive(raidBoss: RaidBoss): boolean {
   return raidBoss.status !== "respawning";
@@ -27,7 +27,7 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
 
     return data.bosses;
   } catch (err) {
-    console.error("[bosses] Fetch failed:", (err as Error).message);
+    console.error("[bosses] Fetch failed:", err instanceof Error ? err.message : String(err));
     return [];
   }
 }
@@ -74,10 +74,7 @@ export async function refreshAllBosses() {
     }
   }
 
-  bossData.clear();
-  for (const [id, data] of entries) {
-    bossData.set(id, data);
-  }
+  bossData = new Map(entries);
 
   console.log(`[DATA] Loaded ${bossData.size} boss(es)`);
 }
