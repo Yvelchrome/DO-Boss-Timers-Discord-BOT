@@ -7,7 +7,9 @@ export function isBossAlive(raidBoss: RaidBoss): boolean {
 
 export async function fetchRaidBosses(): Promise<RaidBoss[]> {
   try {
-    const res = await fetch(RAID_TIMER_API, { signal: AbortSignal.timeout(5000) });
+    const res = await fetch(RAID_TIMER_API, {
+      signal: AbortSignal.timeout(5000),
+    });
     if (!res.ok) throw new Error(`Raid API failed: ${res.status}`);
 
     const data: {
@@ -18,12 +20,7 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
       return [];
     }
 
-    const bosses: RaidBoss[] = data.bosses;
-
-    console.log(
-      `[bosses] Loaded ${bosses.length} boss(es) from raid-timer API`,
-    );
-    return bosses;
+    return data.bosses;
   } catch (err) {
     console.error("[bosses] Fetch failed:", (err as Error).message);
     return [];
