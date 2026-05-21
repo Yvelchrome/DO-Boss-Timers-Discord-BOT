@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   type ButtonInteraction,
   type MessageActionRowComponentBuilder,
 } from "discord.js";
@@ -27,18 +28,22 @@ export function buildNotifyRow(
 
 export async function handleNotifyButton(i: ButtonInteraction) {
   const guild = i.guild;
-  if (!guild) return i.reply({ content: "❌ Server only.", ephemeral: true });
+  if (!guild)
+    return i.reply({
+      content: "❌ Server only.",
+      flags: MessageFlags.Ephemeral,
+    });
 
   const cfg = guildConfigs.get(guild.id);
   if (!cfg?.notifyRoleId) {
     return i.reply({
       content: "⚠️ Notifications not configured on this server.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   // Defer first to avoid 3s timeout
-  await i.deferReply({ ephemeral: true });
+  await i.deferReply({ flags: MessageFlags.Ephemeral });
 
   const member = await guild.members.fetch(i.user.id).catch(() => null);
   if (!member)

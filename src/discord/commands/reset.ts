@@ -1,4 +1,8 @@
-import { type Client, type ChatInputCommandInteraction } from "discord.js";
+import {
+  type Client,
+  type ChatInputCommandInteraction,
+  MessageFlags,
+} from "discord.js";
 import { guildConfigs, removeGuildConfig } from "../config";
 import {
   checkAdminPermission,
@@ -11,7 +15,10 @@ export async function handleTimerReset(
   _client: Client,
 ) {
   if (!i.guild) {
-    return i.reply({ content: "❌ Server only.", ephemeral: true });
+    return i.reply({
+      content: "❌ Server only.",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   if (!checkAdminPermission(i)) return;
@@ -28,5 +35,8 @@ export async function handleTimerReset(
   removeGuildConfig(i.guild.id);
   console.log(`[RESET] ${i.guild.name} - config wiped`);
 
-  return i.reply({ content: "✅ Configuration wiped.", ephemeral: true });
+  return i.reply({
+    content: "✅ Configuration wiped.",
+    flags: MessageFlags.Ephemeral,
+  });
 }

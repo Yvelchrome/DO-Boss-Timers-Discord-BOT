@@ -1,4 +1,4 @@
-import { type Client } from "discord.js";
+import { MessageFlags, type Client } from "discord.js";
 import { handleNotifyButton } from "./notify";
 import { handleTimerSetup } from "./commands/setup";
 import { handleTimerStatus } from "./commands/status";
@@ -18,7 +18,10 @@ export function registerCommands(client: Client) {
     if (!i.isChatInputCommand()) return;
 
     if (!i.guild) {
-      void i.reply({ content: "❌ Server only.", ephemeral: true });
+      void i.reply({
+        content: "❌ Server only.",
+        flags: MessageFlags.Ephemeral,
+      });
       return;
     }
 

@@ -1,4 +1,8 @@
-import { type Client, type ChatInputCommandInteraction } from "discord.js";
+import {
+  type Client,
+  type ChatInputCommandInteraction,
+  MessageFlags,
+} from "discord.js";
 import { bossDisplayName } from "../../bossTimers/bosses";
 import { guildConfigs, persistConfig } from "../config";
 import {
@@ -12,7 +16,10 @@ export async function handleTimerRemove(
   _client: Client,
 ) {
   if (!i.guild) {
-    return i.reply({ content: "❌ Server only.", ephemeral: true });
+    return i.reply({
+      content: "❌ Server only.",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   if (!checkAdminPermission(i)) return;
@@ -23,7 +30,7 @@ export async function handleTimerRemove(
   if (!config) {
     return i.reply({
       content: "⚠️ No boss configured. Use `/timer-setup` first.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -33,14 +40,14 @@ export async function handleTimerRemove(
   if (config.bossId !== bossId) {
     return i.reply({
       content: `⚠️ No countdown for **${inputDisplayName}**. Configured boss is **${cfgDisplayName}**.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   if (!config.messageId) {
     return i.reply({
       content: `⚠️ No countdown message for **${inputDisplayName}**.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -54,6 +61,6 @@ export async function handleTimerRemove(
 
   return i.reply({
     content: `✅ Countdown message for **${inputDisplayName}** deleted.`,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }

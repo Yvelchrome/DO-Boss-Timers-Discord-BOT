@@ -4,6 +4,7 @@ import {
   type TextChannel,
   type ChatInputCommandInteraction,
   type Message,
+  MessageFlags,
 } from "discord.js";
 import type { GuildConfig } from "./config";
 
@@ -43,7 +44,10 @@ export async function deleteMessage(
 
 export function checkAdminPermission(i: ChatInputCommandInteraction): boolean {
   if (!i.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
-    i.reply({ content: "❌ Need **Manage Channels**.", ephemeral: true });
+    i.reply({
+      content: "❌ Need **Manage Channels**.",
+      flags: MessageFlags.Ephemeral,
+    });
     return false;
   }
   return true;

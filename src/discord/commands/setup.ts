@@ -3,6 +3,7 @@ import {
   type Client,
   type ChatInputCommandInteraction,
   type TextChannel,
+  MessageFlags,
 } from "discord.js";
 import { bossData, bossDisplayName } from "../../bossTimers/bosses";
 import { guildConfigs, persistConfig } from "../config";
@@ -16,7 +17,7 @@ export async function handleTimerSetup(
   client: Client,
 ): Promise<void> {
   if (!i.guild) {
-    void i.reply({ content: "❌ Server only.", ephemeral: true });
+    void i.reply({ content: "❌ Server only.", flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -24,7 +25,10 @@ export async function handleTimerSetup(
 
   const channel = i.options.getChannel("channel") as TextChannel | null;
   if (!channel) {
-    void i.reply({ content: "❌ Select a text channel.", ephemeral: true });
+    void i.reply({
+      content: "❌ Select a text channel.",
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 
@@ -32,7 +36,7 @@ export async function handleTimerSetup(
   if (!bossData.has(bossId)) {
     void i.reply({
       content: `❌ Unknown boss. Available: ${[...bossData.keys()].map(bossDisplayName).join(", ")}`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -48,7 +52,7 @@ export async function handleTimerSetup(
   ) {
     void i.reply({
       content: `❌ No permission in ${channel}.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -57,7 +61,7 @@ export async function handleTimerSetup(
   if (existingCfg?.bossId === bossId && existingCfg.messageId) {
     void i.reply({
       content: `⚠️ **${bossDisplayName(bossId)}** already has an active countdown. Run \`/timer-status\` to check, \`/timer-remove\` to delete the message first, or \`/timer-reset\` to wipe everything.`,
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -90,7 +94,7 @@ export async function handleTimerSetup(
 
   await i.reply({
     content: `✅ ${displayName} countdown in ${channel}!`,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 
   try {

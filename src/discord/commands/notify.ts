@@ -2,6 +2,7 @@ import {
   PermissionFlagsBits,
   type Client,
   type ChatInputCommandInteraction,
+  MessageFlags,
 } from "discord.js";
 import { bossData } from "../../bossTimers/bosses";
 import { guildConfigs, persistConfig } from "../config";
@@ -13,7 +14,10 @@ export async function handleTimerNotify(
   _client: Client,
 ) {
   if (!i.guild) {
-    return i.reply({ content: "❌ Server only.", ephemeral: true });
+    return i.reply({
+      content: "❌ Server only.",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const subcommand = i.options.getSubcommand();
@@ -25,7 +29,7 @@ export async function handleTimerNotify(
     if (!config) {
       return i.reply({
         content: "⚠️ No configuration found for this server.",
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
 
@@ -53,7 +57,10 @@ export async function handleTimerNotify(
     }
 
     console.log(`[NOTIFY] ${i.guild.name} → notifications disabled`);
-    return i.reply({ content: "✅ Notifications disabled.", ephemeral: true });
+    return i.reply({
+      content: "✅ Notifications disabled.",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   if (!checkAdminPermission(i)) return;
@@ -62,7 +69,7 @@ export async function handleTimerNotify(
   if (!me.permissions.has(PermissionFlagsBits.MentionEveryone)) {
     return i.reply({
       content: "❌ I need **Mention Everyone** permission to ping roles.",
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -75,7 +82,7 @@ export async function handleTimerNotify(
     if (minutes > maxMinutes) {
       return i.reply({
         content: `❌ **${minutes}min** is longer than the boss respawn time (**${maxMinutes}min**). Max: **${maxMinutes}min**.`,
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
     }
   }
@@ -109,6 +116,6 @@ export async function handleTimerNotify(
   console.log(`[NOTIFY] ${i.guild.name} → @${role.name} (${minutes}min)`);
   return i.reply({
     content: `✅ Notifications set: <@&${role.id}> will be pinged **${minutes}min** before spawn.`,
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }

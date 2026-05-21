@@ -1,4 +1,8 @@
-import { type Client, type ChatInputCommandInteraction } from "discord.js";
+import {
+  type Client,
+  type ChatInputCommandInteraction,
+  MessageFlags,
+} from "discord.js";
 import { guildConfigs, persistConfig } from "../config";
 import { buildNoCountdownEmbed, buildStatusEmbed } from "../embeds";
 import { fetchTextChannel, userHasRole } from "../utils";
@@ -8,14 +12,20 @@ export async function handleTimerStatus(
   _client: Client,
 ) {
   if (!i.guild) {
-    return i.reply({ content: "❌ Server only.", ephemeral: true });
+    return i.reply({
+      content: "❌ Server only.",
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const guildId = i.guild.id;
   const config = guildConfigs.get(guildId);
 
   if (!config || !config.messageId) {
-    return i.reply({ embeds: [buildNoCountdownEmbed()], ephemeral: true });
+    return i.reply({
+      embeds: [buildNoCountdownEmbed()],
+      flags: MessageFlags.Ephemeral,
+    });
   }
 
   const channel = config.channelId
@@ -40,5 +50,8 @@ export async function handleTimerStatus(
     userHasRoleFlag,
   );
 
-  return i.reply({ embeds: [bossEmbed, notifyEmbed], ephemeral: true });
+  return i.reply({
+    embeds: [bossEmbed, notifyEmbed],
+    flags: MessageFlags.Ephemeral,
+  });
 }
