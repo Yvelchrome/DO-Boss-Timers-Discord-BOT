@@ -1,9 +1,17 @@
-import { PermissionFlagsBits, type Client, type TextChannel } from "discord.js";
+import {
+  PermissionFlagsBits,
+  type Client,
+  type TextChannel,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  type MessageActionRowComponentBuilder,
+} from "discord.js";
 import type { BossData } from "../bossTimers/types";
 import { fetchRaidBosses, isBossAlive } from "../bossTimers/bosses";
 import { fetchBossInfo } from "../bossTimers/wiki";
 import {
-  GuildConfig,
+  type GuildConfig,
   guildConfigs,
   persistConfig,
   removeGuildConfig,
@@ -15,6 +23,78 @@ const bossData = new Map<string, BossData>();
 
 function bossDisplayName(monsterId: string): string {
   return bossData.get(monsterId)?.raidBoss.monster_name ?? monsterId;
+}
+
+function buildNotifyRow(
+  guildId: string,
+): ActionRowBuilder<MessageActionRowComponentBuilder> | null {
+  const cfg = guildConfigs.get(guildId);
+  if (!cfg?.notifyRoleId) return null;
+
+  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("notify_optin")
+      .setEmoji("🔔")
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId("notify_optout")
+      .setEmoji("🔕")
+      .setStyle(ButtonStyle.Secondary),
+  );
+}
+
+async function handleNotifyButton(i: any) {
+  const guild = i.guild;
+  if (!guild) return i.reply({ content: "❌ Server only.", ephemeral: true });
+
+  const cfg = guildConfigs.get(guild.id);
+  if (!cfg?.notifyRoleId) {
+    return i.reply({
+      content: "⚠️ Notifications not configured on this server.",
+      ephemeral: true,
+    });
+  }
+
+  // Defer first to avoid 3s timeout
+  await i.deferReply({ ephemeral: true });
+
+  const member = await guild.members.fetch(i.user.id).catch(() => null);
+  if (!member)
+    return i.editReply({
+      content: "❌ Could not fetch your member data.",
+    });
+
+  const role = await guild.roles.fetch(cfg.notifyRoleId).catch(() => null);
+  if (!role) {
+    return i.editReply({
+      content: "⚠️ The notification role no longer exists.",
+    });
+  }
+
+  const isOptin = i.customId === "notify_optin";
+  const alreadyHasRole = member.roles.cache.has(role.id);
+
+  if (isOptin === alreadyHasRole) {
+    return i.editReply({
+      content: isOptin
+        ? "✅ You already have the role."
+        : "🔕 You don't have the role.",
+    });
+  }
+
+  try {
+    await (isOptin ? member.roles.add(role) : member.roles.remove(role));
+    return i.editReply({
+      content: isOptin
+        ? "✅ You'll now receive boss notifications."
+        : "🔕 Notifications silenced.",
+    });
+  } catch {
+    return i.editReply({
+      content:
+        "❌ Could not update role. Check the bot has **Manage Roles** permission and the role is below my highest role.",
+    });
+  }
 }
 
 export async function refreshAllBosses() {
@@ -125,15 +205,60 @@ export async function updateAll(client: Client) {
         continue;
       }
 
+      const row = buildNotifyRow(gid);
+
       if (cfg.lastAlive !== null && cfg.lastAlive !== alive) {
         await msg.delete().catch(() => null);
         cfg.messageId = null;
 
-        const newMsg = await channel.send({ embeds: [embed] });
+        const newMsg = await channel.send({
+          embeds: [embed],
+          components: row ? [row] : [],
+        });
         cfg.messageId = newMsg.id;
         persistConfig(gid);
       } else {
-        await msg.edit({ embeds: [embed] });
+        await msg.edit({
+          embeds: [embed],
+          components: row ? [row] : [],
+        });
+      }
+
+      if (cfg.lastNotifyMsgId && data.raidBoss.status !== "respawning") {
+        await channel.messages.delete(cfg.lastNotifyMsgId).catch(() => null);
+        cfg.lastNotifyMsgId = null;
+        persistConfig(gid);
+      }
+
+      if (
+        cfg.notifyRoleId &&
+        cfg.notifyMinutes &&
+        data.raidBoss.status === "respawning"
+      ) {
+        const msBeforeSpawn = data.raidBoss.next_spawn_ts * 1000 - Date.now();
+        const notifyMs = cfg.notifyMinutes * 60 * 1000;
+
+        if (
+          msBeforeSpawn <= notifyMs &&
+          cfg.lastNotifySpawnTs !== data.raidBoss.next_spawn_ts
+        ) {
+          if (cfg.lastNotifyMsgId) {
+            await channel.messages
+              .delete(cfg.lastNotifyMsgId)
+              .catch(() => null);
+          }
+
+          const pingMsg = await channel
+            .send({
+              content: `🔔 **${bossDisplayName(cfg.bossId)}** spawns soon! <@&${cfg.notifyRoleId}>`,
+              allowedMentions: { roles: [cfg.notifyRoleId] },
+            })
+            .catch(() => null);
+
+          cfg.lastNotifySpawnTs = data.raidBoss.next_spawn_ts;
+          cfg.lastNotifyMsgId = pingMsg?.id ?? null;
+          persistConfig(gid);
+        }
       }
 
       cfg.lastAlive = alive;
@@ -145,6 +270,13 @@ export async function updateAll(client: Client) {
 
 export function registerCommands(client: Client) {
   client.on("interactionCreate", async (i) => {
+    if (i.isButton()) {
+      if (i.customId === "notify_optin" || i.customId === "notify_optout") {
+        await handleNotifyButton(i);
+      }
+      return;
+    }
+
     if (!i.isChatInputCommand()) return;
 
     const { commandName, guild } = i;
@@ -204,13 +336,21 @@ export function registerCommands(client: Client) {
       const data = bossData.get(bossId);
       if (!data) return;
 
+      const row = buildNotifyRow(guild.id);
       const msg = await ch.send({
         embeds: [
           buildCountdown(data.bossInfo, data.raidBoss, data.spawnedAtMs),
         ],
+        components: row ? [row] : [],
       });
 
+      const prevCfg = guildConfigs.get(guild.id);
       guildConfigs.set(guild.id, {
+        notifyRoleId: null,
+        notifyMinutes: null,
+        lastNotifySpawnTs: null,
+        lastNotifyMsgId: null,
+        ...prevCfg,
         channelId: ch.id,
         messageId: msg.id,
         bossId,
@@ -373,6 +513,129 @@ export function registerCommands(client: Client) {
 
       return i.reply({
         content: `✅ Countdown message for **${inputDisplayName}** deleted.`,
+        ephemeral: true,
+      });
+    }
+
+    if (commandName === "timer-notify") {
+      const sub = i.options.getSubcommand();
+      const notifyCfg = guildConfigs.get(guild.id);
+
+      if (sub === "off") {
+        const member = await guild.members.fetch(i.user.id);
+        if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+          return i.reply({
+            content: "❌ Need **Manage Channels**.",
+            ephemeral: true,
+          });
+        }
+
+        if (!notifyCfg) {
+          return i.reply({
+            content: "⚠️ No configuration found for this server.",
+            ephemeral: true,
+          });
+        }
+
+        if (notifyCfg.lastNotifyMsgId && notifyCfg.channelId) {
+          const ch = await guild.channels
+            .fetch(notifyCfg.channelId)
+            .catch(() => null);
+          if (ch?.isTextBased()) {
+            await ch.messages
+              .delete(notifyCfg.lastNotifyMsgId)
+              .catch(() => null);
+          }
+        }
+
+        notifyCfg.notifyRoleId = null;
+        notifyCfg.notifyMinutes = null;
+        notifyCfg.lastNotifySpawnTs = null;
+        notifyCfg.lastNotifyMsgId = null;
+        persistConfig(guild.id);
+
+        if (notifyCfg.channelId && notifyCfg.messageId) {
+          const ch = await guild.channels
+            .fetch(notifyCfg.channelId)
+            .catch(() => null);
+          if (ch?.isTextBased()) {
+            const msg = await ch.messages
+              .fetch(notifyCfg.messageId)
+              .catch(() => null);
+            if (msg) {
+              await msg.edit({ components: [] }).catch(() => null);
+            }
+          }
+        }
+
+        console.log(`[notify] ${guild.name} → notifications disabled`);
+        return i.reply({
+          content: "✅ Notifications disabled.",
+          ephemeral: true,
+        });
+      }
+
+      // sub === "set"
+      const member = await guild.members.fetch(i.user.id);
+      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+        return i.reply({
+          content: "❌ Need **Manage Channels**.",
+          ephemeral: true,
+        });
+      }
+
+      const me = await guild.members.fetchMe();
+      if (!me.permissions.has(PermissionFlagsBits.MentionEveryone)) {
+        return i.reply({
+          content: "❌ I need **Mention Everyone** permission to ping roles.",
+          ephemeral: true,
+        });
+      }
+
+      const role = i.options.getRole("role", true);
+      const minutes = i.options.getInteger("minutes", true);
+
+      const data = bossData.get(notifyCfg?.bossId ?? "");
+      if (data && data.raidBoss.respawn_sec > 0) {
+        const maxMinutes = data.raidBoss.respawn_sec / 60;
+        if (minutes > maxMinutes) {
+          return i.reply({
+            content: `❌ **${minutes}min** is longer than the boss respawn time (**${maxMinutes}min**). Max: **${maxMinutes}min**.`,
+            ephemeral: true,
+          });
+        }
+      }
+
+      guildConfigs.set(guild.id, {
+        channelId: "",
+        messageId: null,
+        bossId: "",
+        lastAlive: null,
+        ...notifyCfg,
+        notifyRoleId: role.id,
+        notifyMinutes: minutes,
+        lastNotifySpawnTs: null,
+      });
+      persistConfig(guild.id);
+
+      if (notifyCfg?.channelId && notifyCfg?.messageId) {
+        const ch = await guild.channels
+          .fetch(notifyCfg.channelId)
+          .catch(() => null);
+        if (ch?.isTextBased()) {
+          const msg = await ch.messages
+            .fetch(notifyCfg.messageId)
+            .catch(() => null);
+          if (msg) {
+            const row = buildNotifyRow(guild.id);
+            await msg.edit({ components: row ? [row] : [] }).catch(() => null);
+          }
+        }
+      }
+
+      console.log(`[notify] ${guild.name} → @${role.name} (${minutes}min)`);
+      return i.reply({
+        content: `✅ Notifications set: <@&${role.id}> will be pinged **${minutes}min** before spawn.`,
         ephemeral: true,
       });
     }
