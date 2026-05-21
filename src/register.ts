@@ -96,7 +96,10 @@ async function register() {
       );
     }
   } catch (err) {
-    console.error("Registration failed:", err instanceof Error ? err.message : err);
+    console.error(
+      "Registration failed:",
+      err instanceof Error ? err.message : err,
+    );
     process.exit(1);
   }
 }
