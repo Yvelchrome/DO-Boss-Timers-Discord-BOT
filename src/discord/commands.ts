@@ -2,6 +2,8 @@ import {
   PermissionFlagsBits,
   type Client,
   type TextChannel,
+  type Guild,
+  type ChatInputCommandInteraction,
   EmbedBuilder,
 } from "discord.js";
 import { bossData, bossDisplayName } from "../bossTimers/bosses";
@@ -13,6 +15,25 @@ import {
 import { buildCountdown } from "./embeds";
 import { buildNotifyRow, handleNotifyButton } from "./notify";
 import { updateAll } from "../update";
+
+async function requireAdmin(i: ChatInputCommandInteraction, guild: Guild) {
+  const member = await guild.members.fetch(i.user.id);
+  if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
+    await i.reply({ content: "❌ Need **Manage Channels**.", ephemeral: true });
+    return null;
+  }
+  return member;
+}
+
+async function editMsgComponents(guild: Guild, channelId: string, messageId: string, components: import("discord.js").ActionRowBuilder<import("discord.js").MessageActionRowComponentBuilder>[]) {
+  const ch = await guild.channels.fetch(channelId).catch(() => null);
+  if (ch?.isTextBased()) {
+    const msg = await ch.messages.fetch(messageId).catch(() => null);
+    if (msg) {
+      await msg.edit({ components }).catch(() => null);
+    }
+  }
+}
 
 export function registerCommands(client: Client) {
   client.on("interactionCreate", async (i) => {
@@ -31,14 +52,8 @@ export function registerCommands(client: Client) {
     }
 
     if (commandName === "timer-setup") {
-      const member = await guild.members.fetch(i.user.id);
-
-      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        return i.reply({
-          content: "❌ Need **Manage Channels**.",
-          ephemeral: true,
-        });
-      }
+      const member = await requireAdmin(i, guild);
+      if (!member) return;
 
       const ch = i.options.getChannel("channel") as TextChannel | null;
       if (!ch) {
@@ -179,14 +194,8 @@ export function registerCommands(client: Client) {
     }
 
     if (commandName === "timer-reset") {
-      const member = await guild.members.fetch(i.user.id);
-
-      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        return i.reply({
-          content: "❌ Need **Manage Channels**.",
-          ephemeral: true,
-        });
-      }
+      const member = await requireAdmin(i, guild);
+      if (!member) return;
 
       const cfg = guildConfigs.get(guild.id);
 
@@ -210,14 +219,8 @@ export function registerCommands(client: Client) {
     }
 
     if (commandName === "timer-remove") {
-      const member = await guild.members.fetch(i.user.id);
-
-      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        return i.reply({
-          content: "❌ Need **Manage Channels**.",
-          ephemeral: true,
-        });
-      }
+      const member = await requireAdmin(i, guild);
+      if (!member) return;
 
       const bossId = i.options.getString("boss", true).toLowerCase();
       const cfg = guildConfigs.get(guild.id);
@@ -268,13 +271,8 @@ export function registerCommands(client: Client) {
       const notifyCfg = guildConfigs.get(guild.id);
 
       if (sub === "off") {
-        const member = await guild.members.fetch(i.user.id);
-        if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-          return i.reply({
-            content: "❌ Need **Manage Channels**.",
-            ephemeral: true,
-          });
-        }
+        const member = await requireAdmin(i, guild);
+        if (!member) return;
 
         if (!notifyCfg) {
           return i.reply({
@@ -301,17 +299,7 @@ export function registerCommands(client: Client) {
         persistConfig(guild.id);
 
         if (notifyCfg.channelId && notifyCfg.messageId) {
-          const ch = await guild.channels
-            .fetch(notifyCfg.channelId)
-            .catch(() => null);
-          if (ch?.isTextBased()) {
-            const msg = await ch.messages
-              .fetch(notifyCfg.messageId)
-              .catch(() => null);
-            if (msg) {
-              await msg.edit({ components: [] }).catch(() => null);
-            }
-          }
+          await editMsgComponents(guild, notifyCfg.channelId, notifyCfg.messageId, []);
         }
 
         console.log(`[notify] ${guild.name} → notifications disabled`);
@@ -321,13 +309,8 @@ export function registerCommands(client: Client) {
         });
       }
 
-      const member = await guild.members.fetch(i.user.id);
-      if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-        return i.reply({
-          content: "❌ Need **Manage Channels**.",
-          ephemeral: true,
-        });
-      }
+      const member = await requireAdmin(i, guild);
+      if (!member) return;
 
       const me = await guild.members.fetchMe();
       if (!me.permissions.has(PermissionFlagsBits.MentionEveryone)) {
@@ -364,20 +347,8 @@ export function registerCommands(client: Client) {
       persistConfig(guild.id);
 
       if (notifyCfg?.channelId && notifyCfg?.messageId) {
-        const ch = await guild.channels
-          .fetch(notifyCfg.channelId)
-          .catch(() => null);
-        if (ch?.isTextBased()) {
-          const msg = await ch.messages
-            .fetch(notifyCfg.messageId)
-            .catch(() => null);
-          if (msg) {
-            const row = buildNotifyRow(guild.id);
-            await msg
-              .edit({ components: row ? [row] : [] })
-              .catch(() => null);
-          }
-        }
+        const row = buildNotifyRow(guild.id);
+        await editMsgComponents(guild, notifyCfg.channelId, notifyCfg.messageId, row ? [row] : []);
       }
 
       console.log(`[notify] ${guild.name} → @${role.name} (${minutes}min)`);
