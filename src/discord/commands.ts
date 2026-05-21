@@ -1,5 +1,6 @@
 import {
   PermissionFlagsBits,
+  DiscordAPIError,
   type Client,
   type TextChannel,
   type ChatInputCommandInteraction,
@@ -157,9 +158,11 @@ export function registerCommands(client: Client) {
       if (cfg.messageId && ch?.isTextBased()) {
         await ch.messages
           .fetch({ message: cfg.messageId, force: true })
-          .catch(() => {
-            cfg.messageId = null;
-            persistConfig(guild.id);
+          .catch((err) => {
+            if (err instanceof DiscordAPIError && err.code === 10008) {
+              cfg.messageId = null;
+              persistConfig(guild.id);
+            }
           });
       }
 
