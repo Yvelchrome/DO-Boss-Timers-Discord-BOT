@@ -92,7 +92,7 @@ bash deploy/setup-vm.sh
 
 5. Fill in your tokens:
 ```bash
-nano .env   # DISCOTOKEN + CLIENT_ID
+nano .env   # DISCORD TOKEN + CLIENT_ID
 ```
 
 6. Start the bot:
