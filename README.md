@@ -4,6 +4,14 @@ Discord bot that displays a live spawn countdown for the Digital Odyssey bosses.
 
 ---
 
+Digital Odyssey is a private server for the game DMO (Digimon Master Online).
+
+Server website link: [https://thedigitalodyssey.com/](https://thedigitalodyssey.com/)
+
+Server Discord link: [https://discord.thedigitalodyssey.com/](https://discord.thedigitalodyssey.com/)
+
+---
+
 ## For Server Admins
 
 ### First setup
@@ -33,6 +41,14 @@ Removes the countdown message without wiping configuration.
 - Config is kept, only the message is deleted
 - To restore: `/timer-setup`
 
+#### `/timer-notify <role> <minutes>` - Set up notifications
+Pings a role X minutes before boss spawn.
+
+- **Requires:** `Manage Channels` permission
+- Bot needs `Mention Everyone` permission to ping roles
+- Minutes must be ≤ boss respawn time
+- Use `/timer-notify off` to disable notifications
+
 #### `/timer-reset` - Wipe everything
 Deletes the countdown messages AND all server configuration (boss, channel).
 
@@ -46,6 +62,7 @@ Deletes the countdown messages AND all server configuration (boss, channel).
 | `/timer-setup` | Manage Channels |
 | `/timer-status` | Everyone |
 | `/timer-remove` | Manage Channels |
+| `/timer-notify` | Manage Channels |
 | `/timer-reset` | Manage Channels |
 
 
