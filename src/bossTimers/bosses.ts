@@ -34,6 +34,11 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
 
 export async function refreshAllBosses() {
   const bosses = await fetchRaidBosses();
+  if (bosses.length === 0) {
+    console.warn("[bosses] Empty API response — keeping existing data");
+    return;
+  }
+
   const entries: [string, BossData][] = [];
 
   const results = await Promise.allSettled(
