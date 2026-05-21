@@ -21,7 +21,7 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
 
     const data = (await res.json()) as { bosses: RaidBoss[] };
     if (!data.bosses?.length) {
-      console.log("[bosses] No bosses returned from raid API");
+      console.log("[BOSSES] No bosses returned from raid API");
       return [];
     }
 
@@ -54,7 +54,7 @@ export async function refreshAllBosses() {
 
   for (const result of results) {
     if (result.status === "rejected") {
-      console.error("[bosses] Wiki fetch failed:", result.reason);
+      console.error("[BOSSES] Wiki fetch failed:", result.reason);
       continue;
     }
 
@@ -109,7 +109,7 @@ export async function refreshTimers() {
         bossInfo,
         spawnedAtMs: raidBoss.status !== "respawning" ? Date.now() : null,
       });
-      console.info(`[boss] Auto-discovered ${raidBoss.monster_name}`);
+      console.info(`[BOSS] Auto-discovered ${raidBoss.monster_name}`);
     }
   }
 }

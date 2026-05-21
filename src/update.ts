@@ -108,7 +108,7 @@ export async function updateAll(client: Client) {
       cfg.lastAlive = alive;
     } catch (err) {
       console.error(
-        `[update] ${gid}:`,
+        `[UPDATE] ${gid}:`,
         err instanceof Error ? err.message : String(err),
       );
     }

@@ -54,7 +54,7 @@ export async function fetchBossInfo(
     };
   } catch (err) {
     console.error(
-      `[wiki] fetch failed for ${monsterId}:`,
+      `[WIKI] fetch failed for ${monsterId}:`,
       err instanceof Error ? err.message : String(err),
     );
     return null;
