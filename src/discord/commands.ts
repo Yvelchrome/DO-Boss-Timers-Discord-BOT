@@ -92,15 +92,15 @@ export function registerCommands(client: Client) {
 
       const prevCfg = guildConfigs.get(guild.id);
       guildConfigs.set(guild.id, {
-        notifyRoleId: null,
-        notifyMinutes: null,
-        lastNotifySpawnTs: null,
-        lastNotifyMsgId: null,
         ...prevCfg,
         channelId: ch.id,
         messageId: msg.id,
         bossId,
         lastAlive: null,
+        notifyRoleId: null,
+        notifyMinutes: null,
+        lastNotifySpawnTs: null,
+        lastNotifyMsgId: null,
       });
       persistConfig(guild.id);
 
@@ -112,11 +112,13 @@ export function registerCommands(client: Client) {
         ephemeral: true,
       });
 
-      // Run update cycle to set initial status
       try {
         await updateAll(client);
       } catch (err) {
-        console.error("[setup]", err instanceof Error ? err.message : String(err));
+        console.error(
+          "[setup]",
+          err instanceof Error ? err.message : String(err),
+        );
       }
       return;
     }
@@ -142,19 +144,6 @@ export function registerCommands(client: Client) {
         ? await guild.channels.fetch(cfg.channelId).catch(() => null)
         : null;
 
-      const bossFields = [
-        {
-          name: "Boss",
-          value: bossDisplayName(cfg.bossId),
-          inline: true,
-        },
-        {
-          name: "Channel",
-          value: ch ? `<#${ch.id}>` : "not set",
-          inline: true,
-        },
-      ];
-
       if (cfg.messageId && ch?.isTextBased()) {
         await ch.messages
           .fetch({ message: cfg.messageId, force: true })
@@ -166,13 +155,33 @@ export function registerCommands(client: Client) {
           });
       }
 
+      const member = await guild.members.fetch(i.user.id).catch(() => null);
+      const role = await guild.roles.fetch(cfg.notifyRoleId).catch(() => null);
+      const alreadyHasRole = member?.roles.cache.has(role?.id);
+
+      const notifyEmbed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle("Notifications")
+        .setDescription(
+          cfg.notifyRoleId && alreadyHasRole
+            ? `<@&${cfg.notifyRoleId}> - You will get pinged **${cfg.notifyMinutes}min** before spawn`
+            : `Click the bell button on the countdown message to get notified **${cfg.notifyMinutes}min** before spawn.`,
+        );
+
+      const bossEmbed = new EmbedBuilder()
+        .setColor(0x3498db)
+        .setTitle("Boss Configuration")
+        .addFields(
+          { name: "Boss", value: bossDisplayName(cfg.bossId), inline: true },
+          {
+            name: "Channel",
+            value: ch ? `<#${ch.id}>` : "not set",
+            inline: true,
+          },
+        );
+
       return i.reply({
-        embeds: [
-          new EmbedBuilder()
-            .setColor(0x3498db)
-            .setTitle("Boss Configuration")
-            .addFields(...bossFields),
-        ],
+        embeds: [bossEmbed, notifyEmbed],
         ephemeral: true,
       });
     }
@@ -193,7 +202,7 @@ export function registerCommands(client: Client) {
       }
 
       removeGuildConfig(guild.id);
-      console.log(`[reset] ${guild.name} — config wiped`);
+      console.log(`[RESET] ${guild.name} - config wiped`);
 
       return i.reply({
         content: "✅ Configuration wiped.",
@@ -280,9 +289,13 @@ export function registerCommands(client: Client) {
         persistConfig(guild.id);
 
         if (notifyCfg.channelId && notifyCfg.messageId) {
-          const ch = await guild.channels.fetch(notifyCfg.channelId).catch(() => null);
+          const ch = await guild.channels
+            .fetch(notifyCfg.channelId)
+            .catch(() => null);
           if (ch?.isTextBased()) {
-            const msg = await ch.messages.fetch(notifyCfg.messageId).catch(() => null);
+            const msg = await ch.messages
+              .fetch(notifyCfg.messageId)
+              .catch(() => null);
             if (msg) await msg.edit({ components: [] }).catch(() => null);
           }
         }
@@ -333,10 +346,15 @@ export function registerCommands(client: Client) {
 
       if (notifyCfg?.channelId && notifyCfg?.messageId) {
         const row = buildNotifyRow(guild.id);
-        const ch = await guild.channels.fetch(notifyCfg.channelId).catch(() => null);
+        const ch = await guild.channels
+          .fetch(notifyCfg.channelId)
+          .catch(() => null);
         if (ch?.isTextBased()) {
-          const msg = await ch.messages.fetch(notifyCfg.messageId).catch(() => null);
-          if (msg) await msg.edit({ components: row ? [row] : [] }).catch(() => null);
+          const msg = await ch.messages
+            .fetch(notifyCfg.messageId)
+            .catch(() => null);
+          if (msg)
+            await msg.edit({ components: row ? [row] : [] }).catch(() => null);
         }
       }
 
