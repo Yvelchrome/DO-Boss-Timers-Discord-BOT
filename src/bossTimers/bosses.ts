@@ -38,9 +38,21 @@ export async function refreshAllBosses() {
   const bosses = await fetchRaidBosses();
   const entries: [string, BossData][] = [];
 
-  for (const raidBoss of bosses) {
-    const existing = bossData.get(raidBoss.monster_id);
-    const bossInfo = await fetchBossInfo(raidBoss.monster_id);
+  const results = await Promise.allSettled(
+    bosses.map(async (raidBoss) => {
+      const existing = bossData.get(raidBoss.monster_id);
+      const bossInfo = await fetchBossInfo(raidBoss.monster_id);
+      return { raidBoss, existing, bossInfo };
+    }),
+  );
+
+  for (const result of results) {
+    if (result.status === "rejected") {
+      console.error("[bosses] Wiki fetch failed:", result.reason);
+      continue;
+    }
+
+    const { raidBoss, existing, bossInfo } = result.value;
 
     entries.push([
       raidBoss.monster_id,
