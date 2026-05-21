@@ -7,7 +7,7 @@ function titleCase(v: string): string {
   return c ? c.replace(/\b\w/g, (x) => x.toUpperCase()) : v;
 }
 
-export function timestamp(ms: number): string {
+function timestamp(ms: number): string {
   return `<t:${Math.floor(ms / 1000)}:R>`;
 }
 
