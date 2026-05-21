@@ -2,6 +2,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  type ButtonInteraction,
   type MessageActionRowComponentBuilder,
 } from "discord.js";
 import { guildConfigs } from "./config";
@@ -24,7 +25,7 @@ export function buildNotifyRow(
   );
 }
 
-export async function handleNotifyButton(i: any) {
+export async function handleNotifyButton(i: ButtonInteraction) {
   const guild = i.guild;
   if (!guild) return i.reply({ content: "❌ Server only.", ephemeral: true });
 
