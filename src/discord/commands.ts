@@ -7,25 +7,28 @@ import {
   EmbedBuilder,
 } from "discord.js";
 import { bossData, bossDisplayName } from "../bossTimers/bosses";
-import {
-  guildConfigs,
-  persistConfig,
-  removeGuildConfig,
-} from "./config";
+import { guildConfigs, persistConfig, removeGuildConfig } from "./config";
 import { buildCountdown } from "./embeds";
 import { buildNotifyRow, handleNotifyButton } from "./notify";
 import { updateAll } from "../update";
 
-async function requireAdmin(i: ChatInputCommandInteraction, guild: Guild) {
-  const member = await guild.members.fetch(i.user.id);
-  if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
-    await i.reply({ content: "❌ Need **Manage Channels**.", ephemeral: true });
-    return null;
+function requireAdmin(i: ChatInputCommandInteraction): boolean {
+  if (!i.memberPermissions?.has(PermissionFlagsBits.ManageChannels)) {
+    i.reply({ content: "❌ Need **Manage Channels**.", ephemeral: true });
+    return false;
   }
-  return member;
+
+  return true;
 }
 
-async function editMsgComponents(guild: Guild, channelId: string, messageId: string, components: import("discord.js").ActionRowBuilder<import("discord.js").MessageActionRowComponentBuilder>[]) {
+async function editMsgComponents(
+  guild: Guild,
+  channelId: string,
+  messageId: string,
+  components: import("discord.js").ActionRowBuilder<
+    import("discord.js").MessageActionRowComponentBuilder
+  >[],
+) {
   const ch = await guild.channels.fetch(channelId).catch(() => null);
   if (ch?.isTextBased()) {
     const msg = await ch.messages.fetch(messageId).catch(() => null);
@@ -52,8 +55,7 @@ export function registerCommands(client: Client) {
     }
 
     if (commandName === "timer-setup") {
-      const member = await requireAdmin(i, guild);
-      if (!member) return;
+      if (!requireAdmin(i)) return;
 
       const ch = i.options.getChannel("channel") as TextChannel | null;
       if (!ch) {
@@ -194,8 +196,7 @@ export function registerCommands(client: Client) {
     }
 
     if (commandName === "timer-reset") {
-      const member = await requireAdmin(i, guild);
-      if (!member) return;
+      if (!requireAdmin(i)) return;
 
       const cfg = guildConfigs.get(guild.id);
 
@@ -219,8 +220,7 @@ export function registerCommands(client: Client) {
     }
 
     if (commandName === "timer-remove") {
-      const member = await requireAdmin(i, guild);
-      if (!member) return;
+      if (!requireAdmin(i)) return;
 
       const bossId = i.options.getString("boss", true).toLowerCase();
       const cfg = guildConfigs.get(guild.id);
@@ -271,8 +271,7 @@ export function registerCommands(client: Client) {
       const notifyCfg = guildConfigs.get(guild.id);
 
       if (sub === "off") {
-        const member = await requireAdmin(i, guild);
-        if (!member) return;
+        if (!requireAdmin(i)) return;
 
         if (!notifyCfg) {
           return i.reply({
@@ -299,7 +298,12 @@ export function registerCommands(client: Client) {
         persistConfig(guild.id);
 
         if (notifyCfg.channelId && notifyCfg.messageId) {
-          await editMsgComponents(guild, notifyCfg.channelId, notifyCfg.messageId, []);
+          await editMsgComponents(
+            guild,
+            notifyCfg.channelId,
+            notifyCfg.messageId,
+            [],
+          );
         }
 
         console.log(`[notify] ${guild.name} → notifications disabled`);
@@ -309,8 +313,7 @@ export function registerCommands(client: Client) {
         });
       }
 
-      const member = await requireAdmin(i, guild);
-      if (!member) return;
+      if (!requireAdmin(i)) return;
 
       const me = await guild.members.fetchMe();
       if (!me.permissions.has(PermissionFlagsBits.MentionEveryone)) {
@@ -348,7 +351,12 @@ export function registerCommands(client: Client) {
 
       if (notifyCfg?.channelId && notifyCfg?.messageId) {
         const row = buildNotifyRow(guild.id);
-        await editMsgComponents(guild, notifyCfg.channelId, notifyCfg.messageId, row ? [row] : []);
+        await editMsgComponents(
+          guild,
+          notifyCfg.channelId,
+          notifyCfg.messageId,
+          row ? [row] : [],
+        );
       }
 
       console.log(`[notify] ${guild.name} → @${role.name} (${minutes}min)`);
