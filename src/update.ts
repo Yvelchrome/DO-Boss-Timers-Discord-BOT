@@ -1,4 +1,4 @@
-import { type Client, type TextChannel } from "discord.js";
+import { type Client, type TextChannel, DiscordAPIError } from "discord.js";
 import type { GuildConfig } from "./discord/config";
 import { guildConfigs, persistConfig } from "./discord/config";
 import { bossData, bossDisplayName, isBossAlive } from "./bossTimers/bosses";
@@ -6,16 +6,20 @@ import { buildCountdown } from "./discord/embeds";
 import { buildNotifyRow } from "./discord/notify";
 
 async function postOrFindMessage(ch: TextChannel, cfg: GuildConfig) {
-  if (cfg.messageId) {
-    try {
-      await ch.messages.fetch({ message: cfg.messageId, force: true });
-      return;
-    } catch {
+  if (!cfg.messageId) return;
+
+  try {
+    await ch.messages.fetch({ message: cfg.messageId, force: true });
+  } catch (err) {
+    if (err instanceof DiscordAPIError && err.code === 10008) {
       cfg.messageId = null;
+    } else {
+      console.error(
+        `[update] Failed to fetch message ${cfg.messageId}:`,
+        err instanceof Error ? err.message : err,
+      );
     }
   }
-
-  // Message not found - don't auto-create. Let admins run /timer-setup.
 }
 
 export async function updateAll(client: Client) {
@@ -48,7 +52,9 @@ export async function updateAll(client: Client) {
         .fetch({ message: cfg.messageId, force: true })
         .catch(() => null);
       if (!msg) {
-        cfg.messageId = null;
+        console.error(
+          `[UPDATE] Message ${cfg.messageId} not found after postOrFindMessage passed`,
+        );
         continue;
       }
 
