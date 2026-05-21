@@ -1,11 +1,8 @@
 import { Client, GatewayIntentBits, ActivityType } from "discord.js";
 import { initConfigs, closeDb } from "./discord/config";
-import {
-  registerCommands,
-  updateAll,
-  refreshAllBosses,
-  refreshTimers,
-} from "./discord/commands";
+import { registerCommands } from "./discord/commands";
+import { updateAll } from "./update";
+import { refreshAllBosses, refreshTimers } from "./bossTimers/bosses";
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 if (!DISCORD_TOKEN) throw new Error("DISCORD_TOKEN is required");

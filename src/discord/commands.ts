@@ -2,271 +2,17 @@ import {
   PermissionFlagsBits,
   type Client,
   type TextChannel,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle,
-  type MessageActionRowComponentBuilder,
+  EmbedBuilder,
 } from "discord.js";
-import type { BossData } from "../bossTimers/types";
-import { fetchRaidBosses, isBossAlive } from "../bossTimers/bosses";
-import { fetchBossInfo } from "../bossTimers/wiki";
+import { bossData, bossDisplayName } from "../bossTimers/bosses";
 import {
-  type GuildConfig,
   guildConfigs,
   persistConfig,
   removeGuildConfig,
 } from "./config";
-import { EmbedBuilder } from "discord.js";
 import { buildCountdown } from "./embeds";
-
-const bossData = new Map<string, BossData>();
-
-function bossDisplayName(monsterId: string): string {
-  return bossData.get(monsterId)?.raidBoss.monster_name ?? monsterId;
-}
-
-function buildNotifyRow(
-  guildId: string,
-): ActionRowBuilder<MessageActionRowComponentBuilder> | null {
-  const cfg = guildConfigs.get(guildId);
-  if (!cfg?.notifyRoleId) return null;
-
-  return new ActionRowBuilder<MessageActionRowComponentBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId("notify_optin")
-      .setEmoji("🔔")
-      .setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder()
-      .setCustomId("notify_optout")
-      .setEmoji("🔕")
-      .setStyle(ButtonStyle.Secondary),
-  );
-}
-
-async function handleNotifyButton(i: any) {
-  const guild = i.guild;
-  if (!guild) return i.reply({ content: "❌ Server only.", ephemeral: true });
-
-  const cfg = guildConfigs.get(guild.id);
-  if (!cfg?.notifyRoleId) {
-    return i.reply({
-      content: "⚠️ Notifications not configured on this server.",
-      ephemeral: true,
-    });
-  }
-
-  // Defer first to avoid 3s timeout
-  await i.deferReply({ ephemeral: true });
-
-  const member = await guild.members.fetch(i.user.id).catch(() => null);
-  if (!member)
-    return i.editReply({
-      content: "❌ Could not fetch your member data.",
-    });
-
-  const role = await guild.roles.fetch(cfg.notifyRoleId).catch(() => null);
-  if (!role) {
-    return i.editReply({
-      content: "⚠️ The notification role no longer exists.",
-    });
-  }
-
-  const isOptin = i.customId === "notify_optin";
-  const alreadyHasRole = member.roles.cache.has(role.id);
-
-  if (isOptin === alreadyHasRole) {
-    return i.editReply({
-      content: isOptin
-        ? "✅ You already have the role."
-        : "🔕 You don't have the role.",
-    });
-  }
-
-  try {
-    await (isOptin ? member.roles.add(role) : member.roles.remove(role));
-    return i.editReply({
-      content: isOptin
-        ? "✅ You'll now receive boss notifications."
-        : "🔕 Notifications silenced.",
-    });
-  } catch {
-    return i.editReply({
-      content:
-        "❌ Could not update role. Check the bot has **Manage Roles** permission and the role is below my highest role.",
-    });
-  }
-}
-
-export async function refreshAllBosses() {
-  const bosses = await fetchRaidBosses();
-  const entries: [string, BossData][] = [];
-
-  for (const raidBoss of bosses) {
-    const existing = bossData.get(raidBoss.monster_id);
-    const bossInfo = await fetchBossInfo(raidBoss.monster_id);
-    entries.push([
-      raidBoss.monster_id,
-      {
-        raidBoss,
-        bossInfo,
-        spawnedAtMs:
-          existing?.spawnedAtMs ??
-          (raidBoss.status !== "respawning" ? Date.now() : null),
-      },
-    ]);
-
-    if (bossInfo) {
-      console.info(
-        `[${raidBoss.monster_id}] ${bossInfo.name} — ${raidBoss.map_name}`,
-      );
-    } else {
-      console.info(
-        `[${raidBoss.monster_id}] ${raidBoss.monster_name} (no wiki)`,
-      );
-    }
-  }
-
-  bossData.clear();
-  for (const [id, data] of entries) bossData.set(id, data);
-  console.log(`[data] Loaded ${bossData.size} boss(es)`);
-}
-
-export async function refreshTimers() {
-  const bosses = await fetchRaidBosses();
-
-  for (const raidBoss of bosses) {
-    const existing = bossData.get(raidBoss.monster_id);
-    if (existing) {
-      if (
-        existing.raidBoss.status === "respawning" &&
-        raidBoss.status !== "respawning"
-      ) {
-        existing.spawnedAtMs = Date.now();
-      } else if (raidBoss.status === "respawning") {
-        existing.spawnedAtMs = null;
-      }
-      existing.raidBoss = raidBoss;
-    } else {
-      const bossInfo = await fetchBossInfo(raidBoss.monster_id);
-      bossData.set(raidBoss.monster_id, {
-        raidBoss,
-        bossInfo,
-        spawnedAtMs: raidBoss.status !== "respawning" ? Date.now() : null,
-      });
-      console.info(`[boss] Auto-discovered ${raidBoss.monster_name}`);
-    }
-  }
-}
-
-async function postOrFindMessage(ch: TextChannel, cfg: GuildConfig) {
-  if (cfg.messageId) {
-    try {
-      await ch.messages.fetch({ message: cfg.messageId, force: true });
-      return;
-    } catch {
-      cfg.messageId = null;
-    }
-  }
-
-  // Message not found — don't auto-create. Let admins run /timer-setup.
-}
-
-export async function updateAll(client: Client) {
-  for (const [gid, cfg] of guildConfigs) {
-    if (!cfg.channelId || !cfg.bossId) continue;
-
-    const data = bossData.get(cfg.bossId);
-    if (!data) continue;
-
-    const alive = isBossAlive(data.raidBoss);
-    const embed = buildCountdown(
-      data.bossInfo,
-      data.raidBoss,
-      data.spawnedAtMs,
-    );
-
-    try {
-      const guild = await client.guilds.fetch(gid).catch(() => null);
-      if (!guild) continue;
-
-      const channel = (await guild.channels
-        .fetch(cfg.channelId)
-        .catch(() => null)) as TextChannel | null;
-      if (!channel) continue;
-
-      await postOrFindMessage(channel, cfg);
-      if (!cfg.messageId) continue;
-
-      const msg = await channel.messages
-        .fetch({ message: cfg.messageId, force: true })
-        .catch(() => null);
-      if (!msg) {
-        cfg.messageId = null;
-        continue;
-      }
-
-      const row = buildNotifyRow(gid);
-
-      if (cfg.lastAlive !== null && cfg.lastAlive !== alive) {
-        await msg.delete().catch(() => null);
-        cfg.messageId = null;
-
-        const newMsg = await channel.send({
-          embeds: [embed],
-          components: row ? [row] : [],
-        });
-        cfg.messageId = newMsg.id;
-        persistConfig(gid);
-      } else {
-        await msg.edit({
-          embeds: [embed],
-          components: row ? [row] : [],
-        });
-      }
-
-      if (cfg.lastNotifyMsgId && data.raidBoss.status !== "respawning") {
-        await channel.messages.delete(cfg.lastNotifyMsgId).catch(() => null);
-        cfg.lastNotifyMsgId = null;
-        persistConfig(gid);
-      }
-
-      if (
-        cfg.notifyRoleId &&
-        cfg.notifyMinutes &&
-        data.raidBoss.status === "respawning"
-      ) {
-        const msBeforeSpawn = data.raidBoss.next_spawn_ts * 1000 - Date.now();
-        const notifyMs = cfg.notifyMinutes * 60 * 1000;
-
-        if (
-          msBeforeSpawn <= notifyMs &&
-          cfg.lastNotifySpawnTs !== data.raidBoss.next_spawn_ts
-        ) {
-          if (cfg.lastNotifyMsgId) {
-            await channel.messages
-              .delete(cfg.lastNotifyMsgId)
-              .catch(() => null);
-          }
-
-          const pingMsg = await channel
-            .send({
-              content: `🔔 **${bossDisplayName(cfg.bossId)}** spawns soon! <@&${cfg.notifyRoleId}>`,
-              allowedMentions: { roles: [cfg.notifyRoleId] },
-            })
-            .catch(() => null);
-
-          cfg.lastNotifySpawnTs = data.raidBoss.next_spawn_ts;
-          cfg.lastNotifyMsgId = pingMsg?.id ?? null;
-          persistConfig(gid);
-        }
-      }
-
-      cfg.lastAlive = alive;
-    } catch (err) {
-      console.error(`[update] ${gid}:`, (err as Error).message);
-    }
-  }
-}
+import { buildNotifyRow, handleNotifyButton } from "./notify";
+import { updateAll } from "../update";
 
 export function registerCommands(client: Client) {
   client.on("interactionCreate", async (i) => {
@@ -575,7 +321,6 @@ export function registerCommands(client: Client) {
         });
       }
 
-      // sub === "set"
       const member = await guild.members.fetch(i.user.id);
       if (!member.permissions.has(PermissionFlagsBits.ManageChannels)) {
         return i.reply({
@@ -628,7 +373,9 @@ export function registerCommands(client: Client) {
             .catch(() => null);
           if (msg) {
             const row = buildNotifyRow(guild.id);
-            await msg.edit({ components: row ? [row] : [] }).catch(() => null);
+            await msg
+              .edit({ components: row ? [row] : [] })
+              .catch(() => null);
           }
         }
       }
