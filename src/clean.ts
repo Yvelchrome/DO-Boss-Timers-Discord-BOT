@@ -1,11 +1,10 @@
-import { REST, Routes } from "discord.js";
+import { Routes } from "discord.js";
+import { createRestClient } from "./api";
 
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
-if (!DISCORD_TOKEN) throw new Error("DISCORD_TOKEN is required");
-const rest = new REST().setToken(DISCORD_TOKEN);
+const rest = createRestClient();
 
 async function clean() {
   if (!CLIENT_ID) throw new Error("CLIENT_ID is required");

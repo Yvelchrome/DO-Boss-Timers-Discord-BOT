@@ -1,12 +1,11 @@
-import { REST, Routes, SlashCommandBuilder } from "discord.js";
+import { Routes, SlashCommandBuilder } from "discord.js";
+import { createRestClient } from "./api";
 import { fetchRaidBosses } from "./bossTimers/bosses";
 
-const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const GUILD_ID = process.env.GUILD_ID;
 
-if (!DISCORD_TOKEN) throw new Error("DISCORD_TOKEN is required");
-const rest = new REST().setToken(DISCORD_TOKEN);
+const rest = createRestClient();
 
 async function register() {
   if (!CLIENT_ID) throw new Error("CLIENT_ID is required");
@@ -97,7 +96,7 @@ async function register() {
       );
     }
   } catch (err) {
-    console.error("Registration failed:", err);
+    console.error("Registration failed:", err instanceof Error ? err.message : err);
     process.exit(1);
   }
 }
