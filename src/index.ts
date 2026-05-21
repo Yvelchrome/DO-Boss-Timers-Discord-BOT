@@ -25,9 +25,16 @@ client.once("clientReady", async () => {
     await refreshAllBosses();
     await updateAll(client);
 
+    let ticking = false;
     setInterval(async () => {
-      await refreshTimers();
-      await updateAll(client);
+      if (ticking) return;
+      ticking = true;
+      try {
+        await refreshTimers();
+        await updateAll(client);
+      } finally {
+        ticking = false;
+      }
     }, 10_000);
     setInterval(refreshAllBosses, 2 * 60 * 60_000);
   } catch (err) {
