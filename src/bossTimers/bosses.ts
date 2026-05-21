@@ -27,7 +27,10 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
 
     return data.bosses;
   } catch (err) {
-    console.error("[bosses] Fetch failed:", err instanceof Error ? err.message : String(err));
+    console.error(
+      "[BOSSES] Fetch failed:",
+      err instanceof Error ? err.message : String(err),
+    );
     return [];
   }
 }
@@ -35,7 +38,7 @@ export async function fetchRaidBosses(): Promise<RaidBoss[]> {
 export async function refreshAllBosses() {
   const bosses = await fetchRaidBosses();
   if (bosses.length === 0) {
-    console.warn("[bosses] Empty API response — keeping existing data");
+    console.warn("[BOSSES] Empty API response - keeping existing data");
     return;
   }
 
@@ -70,7 +73,7 @@ export async function refreshAllBosses() {
 
     if (bossInfo) {
       console.info(
-        `[${raidBoss.monster_id}] ${bossInfo.name} — ${raidBoss.map_name}`,
+        `[${raidBoss.monster_id}] ${bossInfo.name} - ${raidBoss.map_name}`,
       );
     } else {
       console.info(

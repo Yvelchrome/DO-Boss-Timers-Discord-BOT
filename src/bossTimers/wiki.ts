@@ -40,11 +40,11 @@ export async function fetchBossInfo(
           rank:
             band.start === 1
               ? `Top ${band.end}`
-              : `#${band.start}–#${band.end}`,
+              : `#${band.start}-#${band.end}`,
           qty:
             reward.min === reward.max
               ? `x${reward.min}`
-              : `x${reward.min}–${reward.max}`,
+              : `x${reward.min}-${reward.max}`,
           rate:
             reward.rate_permil > 0
               ? `${(reward.rate_permil / 100).toLocaleString(undefined, { maximumFractionDigits: reward.rate_permil % 100 === 0 ? 0 : 1 })}%`
