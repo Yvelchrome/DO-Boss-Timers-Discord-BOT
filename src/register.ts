@@ -55,6 +55,31 @@ async function register() {
           .setRequired(true)
           .addChoices(...(bossChoices ?? [])),
       ),
+    new SlashCommandBuilder()
+      .setName("timer-notify")
+      .setDescription("Configure boss spawn notifications (admin only)")
+      .addSubcommand((sub) =>
+        sub
+          .setName("set")
+          .setDescription("Set up notification role and delay")
+          .addRoleOption((opt) =>
+            opt
+              .setName("role")
+              .setDescription("Role to ping on spawn")
+              .setRequired(true),
+          )
+          .addIntegerOption((opt) =>
+            opt
+              .setName("minutes")
+              .setDescription("Minutes before spawn to notify (1-30)")
+              .setRequired(true)
+              .setMinValue(1)
+              .setMaxValue(30),
+          ),
+      )
+      .addSubcommand((sub) =>
+        sub.setName("off").setDescription("Disable notifications"),
+      ),
   ].map((command) => command.toJSON());
 
   try {
