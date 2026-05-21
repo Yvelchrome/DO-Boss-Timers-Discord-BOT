@@ -6,19 +6,20 @@ import { buildCountdown } from "./discord/embeds";
 import { buildNotifyRow } from "./discord/notify";
 
 async function postOrFindMessage(ch: TextChannel, cfg: GuildConfig) {
-  if (!cfg.messageId) return;
+  if (!cfg.messageId) return null;
 
   try {
-    await ch.messages.fetch({ message: cfg.messageId, force: true });
+    return await ch.messages.fetch({ message: cfg.messageId, force: true });
   } catch (err) {
     if (err instanceof DiscordAPIError && err.code === 10008) {
       cfg.messageId = null;
     } else {
       console.error(
-        `[update] Failed to fetch message ${cfg.messageId}:`,
+        `[UPDATE] Failed to fetch message ${cfg.messageId}:`,
         err instanceof Error ? err.message : err,
       );
     }
+    return null;
   }
 }
 
@@ -45,18 +46,8 @@ export async function updateAll(client: Client) {
         .catch(() => null)) as TextChannel | null;
       if (!channel) continue;
 
-      await postOrFindMessage(channel, cfg);
-      if (!cfg.messageId) continue;
-
-      const msg = await channel.messages
-        .fetch({ message: cfg.messageId, force: true })
-        .catch(() => null);
-      if (!msg) {
-        console.error(
-          `[UPDATE] Message ${cfg.messageId} not found after postOrFindMessage passed`,
-        );
-        continue;
-      }
+      const msg = await postOrFindMessage(channel, cfg);
+      if (!msg) continue;
 
       const row = buildNotifyRow(gid);
 
@@ -116,7 +107,10 @@ export async function updateAll(client: Client) {
 
       cfg.lastAlive = alive;
     } catch (err) {
-      console.error(`[update] ${gid}:`, err instanceof Error ? err.message : String(err));
+      console.error(
+        `[update] ${gid}:`,
+        err instanceof Error ? err.message : String(err),
+      );
     }
   }
 }
