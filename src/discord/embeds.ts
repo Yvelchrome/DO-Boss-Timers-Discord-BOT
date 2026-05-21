@@ -1,7 +1,11 @@
 import { EmbedBuilder } from "discord.js";
 import type { RaidBoss, BossInfo } from "../bossTimers/types";
 import { isBossAlive } from "../bossTimers/bosses";
-import { titleCase } from "./config";
+
+function titleCase(v: string): string {
+  const c = v.replace(/[_-]+/g, " ").trim();
+  return c ? c.replace(/\b\w/g, (x) => x.toUpperCase()) : v;
+}
 
 export function timestamp(ms: number): string {
   return `<t:${Math.floor(ms / 1000)}:R>`;

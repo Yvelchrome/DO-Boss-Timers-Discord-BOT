@@ -33,7 +33,4 @@ export function removeGuildConfig(guildId: string): void {
 
 export { closeDb };
 
-export function titleCase(v: string): string {
-  const c = v.replace(/[_-]+/g, " ").trim();
-  return c ? c.replace(/\b\w/g, (x) => x.toUpperCase()) : v;
-}
+
