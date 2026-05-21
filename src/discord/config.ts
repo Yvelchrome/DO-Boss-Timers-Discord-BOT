@@ -5,6 +5,10 @@ export type GuildConfig = {
   messageId: string | null;
   bossId: string;
   lastAlive: boolean | null;
+  notifyRoleId: string | null;
+  notifyMinutes: number | null;
+  lastNotifySpawnTs: number | null;
+  lastNotifyMsgId: string | null;
 };
 
 export const guildConfigs = new Map<string, GuildConfig>();
