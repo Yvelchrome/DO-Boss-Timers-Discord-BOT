@@ -94,7 +94,7 @@ export async function updateAll(client: Client) {
 
           const pingMsg = await channel
             .send({
-              content: `🔔 **${bossDisplayName(cfg.bossId)}** spawns soon! <@&${cfg.notifyRoleId}>`,
+              content: `🔔 **${bossDisplayName(cfg.bossId)}** spawns soon! <@&${cfg.notifyRoleId}>\nNext spawn: <t:${data.raidBoss.next_spawn_ts}:R>!`,
               allowedMentions: { roles: [cfg.notifyRoleId] },
             })
             .catch(() => null);
