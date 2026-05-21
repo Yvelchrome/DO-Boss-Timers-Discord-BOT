@@ -172,17 +172,14 @@ export function registerCommands(client: Client) {
         },
       ];
 
-      const msgAlive =
-        cfg.messageId && ch?.isTextBased()
-          ? await ch.messages
-              .fetch({ message: cfg.messageId, force: true })
-              .then(() => true)
-              .catch(() => {
-                cfg.messageId = null;
-                persistConfig(guild.id);
-                return false;
-              })
-          : false;
+      if (cfg.messageId && ch?.isTextBased()) {
+        await ch.messages
+          .fetch({ message: cfg.messageId, force: true })
+          .catch(() => {
+            cfg.messageId = null;
+            persistConfig(guild.id);
+          });
+      }
 
       return i.reply({
         embeds: [
@@ -342,6 +339,7 @@ export function registerCommands(client: Client) {
         messageId: null,
         bossId: "",
         lastAlive: null,
+        lastNotifyMsgId: null,
         ...notifyCfg,
         notifyRoleId: role.id,
         notifyMinutes: minutes,
@@ -365,5 +363,7 @@ export function registerCommands(client: Client) {
         ephemeral: true,
       });
     }
+
+    return;
   });
 }
